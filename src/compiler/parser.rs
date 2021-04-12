@@ -229,6 +229,7 @@ pub fn parse_pattern_content(
                     PatternPiece {
                         relative_loc: pieces[0].relative_loc,
                         repetition: None,
+                        is_silent: false,
                         value: PatternPieceValue::Suite(pieces),
                     }
                 }
@@ -275,6 +276,7 @@ pub fn parse_pattern_content(
                         break PatternPiece {
                             relative_loc: ParserLoc { line: 0, col: 0 },
                             repetition: None,
+                            is_silent: false,
                             // If the parser stopped on the first piece because it encountered an union separator, the remaining content
                             // should be put inside an union.
                             // Otherwise, and if no union separator was found during the parsing on the whole pattern's content,
@@ -426,6 +428,10 @@ pub fn parse_pattern_piece(
 ///
 /// This function's success return value is the parsed sub-piece and the consumed input length
 fn parse_pattern_sub_piece(input: &str) -> Result<(PatternPiece, usize), ParserError> {
+    // Determine if the sub-piece is silent
+    let (trimmed, is_silent) = parse_pattern_piece_silence(input);
+    let input = &input[trimmed..];
+
     let (value, len) =
     // Check if the value is a constant string
     if let Some((string, len)) = singles::cst_string(input)? {
@@ -461,10 +467,22 @@ fn parse_pattern_sub_piece(input: &str) -> Result<(PatternPiece, usize), ParserE
         PatternPiece {
             relative_loc: ParserLoc { line: 0, col: 0 },
             value,
+            is_silent,
             repetition,
         },
-        len + if repetition.is_some() { 1 } else { 0 },
+        trimmed + len + if repetition.is_some() { 1 } else { 0 },
     ))
+}
+
+/// Parse a possibly silent piece beginning
+///
+/// If the piece is indicated to be non-capturing (silent), the consumed size will be returned with the `true` value
+pub fn parse_pattern_piece_silence(input: &str) -> (usize, bool) {
+    if input.starts_with("_:") {
+        (2, true)
+    } else {
+        (0, false)
+    }
 }
 
 /// Reason by the [piece parser](`parse_pattern_piece`) stopped at a specific moment
@@ -512,6 +530,9 @@ pub struct PatternPiece<'a> {
     /// Repetition model
     repetition: Option<PatternRepetition>,
 
+    /// Is the piece silent?
+    is_silent: bool,
+
     /// The piece's value
     value: PatternPieceValue<'a>,
 }
@@ -525,6 +546,11 @@ impl<'a> PatternPiece<'a> {
     /// Get the piece's repetition model
     pub fn repetition(&self) -> Option<PatternRepetition> {
         self.repetition
+    }
+
+    /// Is the piece silent?
+    pub fn is_silent(&self) -> bool {
+        self.is_silent
     }
 
     /// Get the piece's value

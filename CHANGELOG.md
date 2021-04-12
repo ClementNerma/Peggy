@@ -2,6 +2,10 @@
 
 ## Pre-1.0 versions
 
+### Version 0.2.0 (April 12th, 2021)
+
+* Add support for silent captures (`_:`)
+
 ### Version 0.1.0 (April 9th, 2021)
 
 * Complete parser with support for:

@@ -29,7 +29,10 @@ pub fn execute<'a, 'b: 'a>(
     }
 
     // Success!
-    Ok(MatchingPattern { name: "main", data })
+    Ok(MatchingPattern {
+        name: "main",
+        data: data.unwrap_or(MatchedData::SilentPattern),
+    })
 }
 
 /// Match the given input against a single [`PatternPiece`]
@@ -41,10 +44,11 @@ pub fn match_piece<'a, 'b: 'a>(
     mut input: &'a str,
     cursor: RuntimeCursor<'a>,
     piece: &PatternPiece<'b>,
-) -> Result<(MatchedData<'a>, usize), RuntimeError<'a>> {
+) -> Result<(Option<MatchedData<'a>>, usize), RuntimeError<'a>> {
     // Try to match the piece's value against a sub-input (see usages below)
     let try_match = |input: &'a str, cursor: RuntimeCursor<'a>| {
-        match_piece_value(ctx, input, cursor, piece.value())
+        match_piece_value(ctx, input, cursor, piece.value(), piece.is_silent())
+            .map(|(data, len)| (data.filter(|_| !piece.is_silent()), len))
     };
 
     // The matching method depends on the repetition model (see [`crate::compiler::PatternRepetition`])
@@ -82,25 +86,50 @@ pub fn match_piece<'a, 'b: 'a>(
                         };
 
                     matched_once = true;
-                    total_data.push(data);
+
+                    if let Some(data) = data {
+                        total_data.push(data);
+                    }
+
                     total_len += len;
                     input = &input[len..];
                 }
 
                 // Success!
-                Ok((MatchedData::RepeatedPiece(total_data), total_len))
+                Ok((
+                    if piece.is_silent() {
+                        None
+                    } else {
+                        Some(MatchedData::RepeatedPiece(total_data))
+                    },
+                    total_len,
+                ))
             }
 
             // For optional matching, succeed in any case (except for ' errors)
             PatternRepetition::Optional => Ok(match try_match(input, cursor) {
-                Ok((data, len)) => (MatchedData::OptionalPiece(Some(Rc::new(data))), len),
+                Ok((data, len)) => (
+                    if piece.is_silent() {
+                        None
+                    } else {
+                        Some(MatchedData::OptionalPiece(Some(Rc::new(data))))
+                    },
+                    len,
+                ),
                 err
                 @
                 Err(RuntimeError {
                     content: RuntimeErrorContent::PatternNotFound(_),
                     ..
                 }) => return err,
-                Err(_) => (MatchedData::OptionalPiece(None), 0),
+                Err(_) => (
+                    if piece.is_silent() {
+                        None
+                    } else {
+                        Some(MatchedData::OptionalPiece(None))
+                    },
+                    0,
+                ),
             }),
         },
     }
@@ -115,12 +144,20 @@ pub fn match_piece_value<'a, 'b: 'a>(
     input: &'a str,
     cursor: RuntimeCursor<'a>,
     piece_value: &PatternPieceValue<'b>,
-) -> Result<(MatchedData<'a>, usize), RuntimeError<'a>> {
+    is_silent: bool,
+) -> Result<(Option<MatchedData<'a>>, usize), RuntimeError<'a>> {
     match piece_value {
         // Match against a constant string
         PatternPieceValue::CstString(string) => {
             if input.starts_with(string) {
-                Ok((MatchedData::CstString(string), string.len()))
+                Ok((
+                    if is_silent {
+                        None
+                    } else {
+                        Some(MatchedData::CstString(string))
+                    },
+                    string.len(),
+                ))
             } else {
                 Err(RuntimeError::new(
                     ctx.subject,
@@ -136,12 +173,14 @@ pub fn match_piece_value<'a, 'b: 'a>(
 
             // Builtin patterns
             if is_builtin_pattern_name(name) {
-                return match_builtin_pattern(ctx, input, cursor, name);
+                return match_builtin_pattern(ctx, input, cursor, name)
+                    .map(|(data, len)| (if is_silent { None } else { Some(data) }, len));
             }
 
             // External patterns
             if is_external_pattern_name(name) {
-                return match_external_pattern(ctx, input, cursor, name);
+                return match_external_pattern(ctx, input, cursor, name)
+                    .map(|(data, len)| (if is_silent { None } else { Some(data) }, len));
             }
 
             // Declared patterns
@@ -158,7 +197,14 @@ pub fn match_piece_value<'a, 'b: 'a>(
 
             match_piece(ctx, input, cursor, pattern.inner_piece()).map(|(data, len)| {
                 (
-                    MatchedData::Pattern(Rc::new(MatchingPattern { name, data })),
+                    if is_silent {
+                        None
+                    } else {
+                        Some(MatchedData::Pattern(Rc::new(MatchingPattern {
+                            name,
+                            data: data.unwrap_or(MatchedData::SilentPattern),
+                        })))
+                    },
                     len,
                 )
             })
@@ -189,12 +235,22 @@ pub fn match_piece_value<'a, 'b: 'a>(
                     piece,
                 )?;
 
-                matched.push(data);
+                if let Some(data) = data {
+                    matched.push(data);
+                }
+
                 column += len;
                 input = &input[len..];
             }
 
-            Ok((MatchedData::SuiteOf(matched), column))
+            Ok((
+                if is_silent {
+                    None
+                } else {
+                    Some(MatchedData::SuiteOf(matched))
+                },
+                column,
+            ))
         }
 
         // Match any of an union's members, in order

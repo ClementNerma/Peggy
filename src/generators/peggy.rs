@@ -15,13 +15,19 @@ pub fn gen_peggy(pst: &PegSyntaxTree) -> String {
 
 /// Generate a Peggy code for a single [`PatternPiece`]
 pub fn gen_peggy_piece(piece: &PatternPiece) -> String {
-    let piece_value = gen_peggy_piece_value(piece.value());
+    let mut piece_value = if piece.is_silent() {
+        "_:".to_string()
+    } else {
+        String::new()
+    };
+
+    piece_value.push_str(&gen_peggy_piece_value(piece.value()));
 
     if let Some(rep) = piece.repetition() {
-        format!("{}{}", piece_value, rep.symbol())
-    } else {
-        piece_value
+        piece_value.push(rep.symbol());
     }
+
+    piece_value
 }
 
 /// Generate a Peggy code for a single [`PatternPieceValue`]

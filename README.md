@@ -93,6 +93,8 @@ Pieces can be decorated with a _repetition model_ (no whitespace must be present
 * `*`: match this piece as much as possible, zero matching is allowed
 * `?`: match this piece one time if possible, zero matching is allowed
 
+Pieces can also be made _silent_ to avoid capturing anything, by prefixing them with `_:` (no space allowed).
+
 ## Builtin patterns
 
 There are multiple builtin patterns, which will only match at most one single character:

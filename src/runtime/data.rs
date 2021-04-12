@@ -3,7 +3,11 @@ use std::rc::Rc;
 /// Data matched against a pattern
 #[derive(Debug)]
 pub struct MatchingPattern<'a> {
+    /// Name of the matched pattern
     pub(crate) name: &'a str,
+
+    /// Data captured in the pattern
+    /// Will be `None` if the pattern is silent
     pub(crate) data: MatchedData<'a>,
 }
 
@@ -14,6 +18,7 @@ impl<'a> MatchingPattern<'a> {
     }
 
     /// Get a reference to matched pattern's data
+    /// Will be `None` if the pattern is silent
     pub fn data(&self) -> &MatchedData<'a> {
         &self.data
     }
@@ -32,7 +37,8 @@ pub enum MatchedData<'a> {
     SuiteOf(Vec<MatchedData<'a>>),
 
     /// Matched an optional piece
-    OptionalPiece(Option<Rc<MatchedData<'a>>>),
+    /// The Rc's inner value will be `None` if it's non-capturing
+    OptionalPiece(Option<Rc<Option<MatchedData<'a>>>>),
 
     /// Matched repeated data from a single piece
     RepeatedPiece(Vec<MatchedData<'a>>),
@@ -42,4 +48,7 @@ pub enum MatchedData<'a> {
 
     /// Matched an external pattern
     ExternalPattern { name: &'a str, matched: &'a str },
+
+    /// Matched a silent pattern
+    SilentPattern,
 }
