@@ -4,11 +4,11 @@ use std::rc::Rc;
 #[derive(Debug)]
 pub struct MatchingPattern<'a> {
     /// Name of the matched pattern
-    pub(crate) name: &'a str,
+    pub(super) name: &'a str,
 
     /// Data captured in the pattern
     /// Will be `None` if the pattern is silent
-    pub(crate) data: MatchedData<'a>,
+    pub(super) data: MatchedData<'a>,
 }
 
 impl<'a> MatchingPattern<'a> {

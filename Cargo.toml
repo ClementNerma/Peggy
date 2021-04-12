@@ -1,5 +1,6 @@
-[package]
-name = "peggy"
-version = "0.2.1"
-edition = "2018"
-authors = ["Clément Nerma <clement.nerma@gmail.com>"]
+[workspace]
+
+members = [
+    "peggy",
+    "peggy_derive"
+]

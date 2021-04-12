@@ -6,8 +6,8 @@ use std::time::Instant;
 
 static PRN_GRAMMAR: &str = r#"
 
-S = B_WHITESPACE                            # Whitespace
-DEC_SEP = "." | ","                         # Decimal separator
+S = _:B_WHITESPACE                          # Whitespace
+DEC_SEP = _:("." | ",")                     # Decimal separator
 
 int = B_ASCII_DIGIT+                        # Integer
 float = int DEC_SEP int                     # Floating-point number
@@ -17,7 +17,7 @@ operator = "+" | "-" | "*" | "/"            # Operator
 operand = number | paren_expr               # Operand
 operation = operand S+ operand S* operator  # Complete operation
 
-paren_expr = "(" S* expr S* ")"             # Expression wrapped between parenthesis
+paren_expr = _:"(" S* expr S* _:")"         # Expression wrapped between parenthesis
 expr = number | operation | paren_expr      # Complete expression
 
 main = expr                                 # Grammar's entrypoint
@@ -107,7 +107,7 @@ fn eval_expr(matching: &MatchingPattern) -> f64 {
 
         "paren_expr" => match data {
             MatchedData::SuiteOf(suite) => match suite.as_slice() {
-                [_, _, MatchedData::Pattern(expr), _, _] => eval_expr(expr),
+                [_, MatchedData::Pattern(expr), _] => eval_expr(expr),
                 _ => unreachable!("'paren_expr' pattern's suite isn't made as epxected")
             },
             _ => unreachable!("'paren_expr' pattern isn't made of a suite of pieces")

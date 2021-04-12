@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 /// A grammar's entrypoint pattern
-static GRAMMAR_ENTRYPOINT_PATTERN: &str = "main";
+pub const GRAMMAR_ENTRYPOINT_PATTERN: &str = "main";
 
 /// Compile a Peggy grammar to a [syntax tree](`PegSyntaxTree`)
 pub fn parse_peg(grammar: &str) -> Result<PegSyntaxTree, ParserError> {

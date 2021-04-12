@@ -68,9 +68,6 @@ pub fn is_reserved_pattern_name(name: &str) -> bool {
 
 /// Exhaustive list of all builtin patterns
 pub static BUILTIN_PATTERNS: &[&str] = &[
-    "B_EOI",
-    "B_TRUE",
-    "B_FALSE",
     "B_ANY",
     "B_NEWLINE_CR",
     "B_NEWLINE_LF",

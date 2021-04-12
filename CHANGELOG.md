@@ -2,6 +2,15 @@
 
 ## Pre-1.0 versions
 
+### Version 0.3.0 (April 12th, 2021)
+
+* Introduce the [parser generator](peggy_derive/)
+
+### Version 0.2.2 (April 12th, 2021)
+
+* Make the `GRAMMAR_ENTRYPOINT_PATTERN` constant public
+* Remove unstable builtin patterns `B_EOI`, `B_TRUE` and `B_FALSE`
+
 ### Version 0.2.1 (April 12th, 2021)
 
 * Change visibility of generators

@@ -1,0 +1,15 @@
+[package]
+name = "peggy_derive"
+version = "0.3.0"
+authors = ["Clément Nerma <clement.nerma@gmail.com>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+lazy_static = "1.4.0"
+peggy = { path = "../peggy" }
+quote = "1.0.9"
+regex = "1.4.5"
+syn = { version = "1.0.69", features = ["full"] }

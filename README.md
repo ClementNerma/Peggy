@@ -1,20 +1,25 @@
 # Peggy's Parser
 
-`peggy` is a small and efficient tool to parse and execute PEG-based grammars.
+`peggy` is a small and efficient parser generator based on PEG grammars.
 
 It can parse nested grammars and supports repetition operators. Error reporting is tailored to be as intuitive and readable as possible.
 
-As a middle term-goal, I plan to make this a parser generator to get native Rust code from the grammar files, which would allow for easier output handling and faster performances with large grammars and input texts.
+There are two crates: [`peggy`](peggy/), which contains the library's base code as well as the grammar parser and the runtime engine, and [`peggy_derive/`](peggy_derive/) which is the parser generator.
 
-## Usage
+## Examples
+
+You can find several examples in the source directories for [`peggy`](peggy/examples) and [`peggy_derive`](peggy_derive/examples), notably:
+
+* [`peggy/prn`](peggy/examples/prn.rs) - A Reverse Polish Notation (RPN) evaluator, using the runtime engine
+* [`peggy_derive/prn`](peggy_derive/examples/prn.rs) - The same RPN evaluator but using a parser generator
 
 ## RPN example
 
 A Reverse Polish Notation (RPN) grammar may look like this:
 
 ```
-S = B_WHITESPACE                            # Whitespace
-DEC_SEP = "." | ","                         # Decimal separator
+S = _:B_WHITESPACE                          # Whitespace
+DEC_SEP = _:("." | ",")                     # Decimal separator
 
 int = B_ASCII_DIGIT+                        # Integer
 float = int DEC_SEP int                     # Floating-point number
@@ -24,7 +29,7 @@ operator = "+" | "-" | "*" | "/"            # Operator
 operand = number | paren_expr               # Operand
 operation = operand S+ operand S* operator  # Complete operation
 
-paren_expr = "(" S* expr S* ")"             # Expression wrapped between parenthesis
+paren_expr = _:"(" S* expr S* _:")"         # Expression wrapped between parenthesis
 expr = number | operation | paren_expr      # Complete expression
 
 main = expr                                 # Grammar's entrypoint
@@ -34,15 +39,15 @@ This will be able to match complex operations like `(3 (9.3 3 /) +) (5 (2 3 /) /
 
 ## Performances
 
-On my computer (Intel Core i7-9700F), in release mode the grammar is parsed in 16 microseconds (0.016 milliseconds) while the parsing takes about 128 microseconds (0.128 milliseconds).
+On my computer (Intel Core i7-9700F), in release mode the grammar is parsed in 16 microseconds (0.016 milliseconds) while the runtime engine takes about 128 microseconds (0.128 milliseconds).
 
 As you can guess, these increases linearly with the size of the inputs, which can lead to a time of multiple seconds if you parse tens of thousands of kilobytes.
 
-This is one of the main motivations for the future parser generator feature.
+With the parser generator, we go down from 128 microseconds to only 10 (so 0.010 milliseconds), which is great!
 
 ## Elegant error reporting
 
-A simple grammar like the one shown in [`src/lib.rs`](src/lib.rs) will give the following error message:
+A simple grammar like the one shown in [`peggy/src/lib.rs`](peggy/src/lib.rs) will give the following error message:
 
 ```
 ERROR: At line 1, column 7:
@@ -99,31 +104,28 @@ Pieces can also be made _silent_ to avoid capturing anything, by prefixing them 
 
 There are multiple builtin patterns, which will only match at most one single character:
 
-| Pattern's name         | Description                                     |
-| ---------------------- | ----------------------------------------------- |
-| `B_EOI`                | Only if the input is finished                   |
-| `B_TRUE`               | Always, even if there is no available character |
-| `B_FALSE`              | Never                                           |
-| `B_ANY`                | Any character                                   |
-| `B_NEWLINE_CR`         | Match `\r` newline characters                   |
-| `B_NEWLINE_LF`         | Match `\n` newline characters                   |
-| `B_DOUBLE_QUOTE`       | Match a double quote                            |
-| `B_ASCII`              | ASCII characters                                |
-| `B_ASCII_ALPHABETIC`   | ASCII alphabetic characters                     |
-| `B_ASCII_ALPHANUMERIC` | ASCII alphanumeric characters                   |
-| `B_ASCII_CONTROL`      | ASCII control characters                        |
-| `B_ASCII_DIGIT`        | ASCII digits                                    |
-| `B_ASCII_GRAPHIC`      | ASCII graphic characters                        |
-| `B_ASCII_HEXDIGIT`     | ASCII hexidecimal digits                        |
-| `B_ASCII_LOWERCASE`    | ASCII lowercase characters                      |
-| `B_ASCII_PUNCTUATION`  | ASCII punctuation characters                    |
-| `B_ASCII_UPPERCASE`    | ASCII uppercase characters                      |
-| `B_ASCII_WHITESPACE`   | ASCII whitespaces                               |
-| `B_CONTROL`            | Unicode control characters                      |
-| `B_LOWERCASE`          | Unicode lowercase characters                    |
-| `B_NUMERIC`            | Unicode numeric characters                      |
-| `B_UPPERCASE`          | Unicode uppercase characters                    |
-| `B_WHITESPACE`         | Unicode whitespaces                             |
+| Pattern's name         | Description                   |
+| ---------------------- | ----------------------------- |
+| `B_ANY`                | Any character                 |
+| `B_NEWLINE_CR`         | Match `\r` newline characters |
+| `B_NEWLINE_LF`         | Match `\n` newline characters |
+| `B_DOUBLE_QUOTE`       | Match a double quote          |
+| `B_ASCII`              | ASCII characters              |
+| `B_ASCII_ALPHABETIC`   | ASCII alphabetic characters   |
+| `B_ASCII_ALPHANUMERIC` | ASCII alphanumeric characters |
+| `B_ASCII_CONTROL`      | ASCII control characters      |
+| `B_ASCII_DIGIT`        | ASCII digits                  |
+| `B_ASCII_GRAPHIC`      | ASCII graphic characters      |
+| `B_ASCII_HEXDIGIT`     | ASCII hexidecimal digits      |
+| `B_ASCII_LOWERCASE`    | ASCII lowercase characters    |
+| `B_ASCII_PUNCTUATION`  | ASCII punctuation characters  |
+| `B_ASCII_UPPERCASE`    | ASCII uppercase characters    |
+| `B_ASCII_WHITESPACE`   | ASCII whitespaces             |
+| `B_CONTROL`            | Unicode control characters    |
+| `B_LOWERCASE`          | Unicode lowercase characters  |
+| `B_NUMERIC`            | Unicode numeric characters    |
+| `B_UPPERCASE`          | Unicode uppercase characters  |
+| `B_WHITESPACE`         | Unicode whitespaces           |
 
 ## External characters
 

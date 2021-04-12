@@ -7,7 +7,11 @@
 //! To get the best possible performances, allocations are reduced to the string minimum, especially on the heap's side.  
 //! All string manipulations are performed using slices and lifetimes, except for error reporting which doesn't require as much performances.
 //!
-//! ## Usage
+//! ## Parser generator
+//!
+//! See the `prn` example in the `peggy_derive` crate.
+//!
+//! ## Without parser generator
 //!
 //! ```rust
 //! use peggy::compiler::{parse_peg, pretty_format_parser_err};

@@ -5,10 +5,6 @@
 /// Otherwise, it will return `true`, indicating a match. A single character should be consumed from the input in that case.
 pub fn match_builtin_pattern(pattern_name: &str, next_char: Option<char>) -> Option<bool> {
     Some(match pattern_name {
-        "B_EOI" => next_char.is_none(),
-        "B_TRUE" => true,
-        "B_FALSE" => false,
-
         "B_ANY" => next_char.is_some(),
 
         "B_NEWLINE_CR" => next_char.map(|c| c == '\r').unwrap_or(false),
@@ -38,5 +34,6 @@ pub fn match_builtin_pattern(pattern_name: &str, next_char: Option<char>) -> Opt
 
         _ => return None,
         // NOTE: When adding a new item to this list, the `BUILTIN_PATTERNS` static also needs to be updated
+        // NOTE: Also needs to be updated the Rust generator for these patterns
     })
 }
