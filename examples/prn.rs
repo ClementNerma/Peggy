@@ -17,7 +17,7 @@ operator = "+" | "-" | "*" | "/"            # Operator
 operand = number | paren_expr               # Operand
 operation = operand S+ operand S* operator  # Complete operation
 
-paren_expr = ("(" S* expr S* ")")           # Expression wrapped between parenthesis
+paren_expr = "(" S* expr S* ")"             # Expression wrapped between parenthesis
 expr = number | operation | paren_expr      # Complete expression
 
 main = expr                                 # Grammar's entrypoint
