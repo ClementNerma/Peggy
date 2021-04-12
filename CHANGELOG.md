@@ -2,6 +2,10 @@
 
 ## Pre-1.0 versions
 
+### Version 0.2.1 (April 12th, 2021)
+
+* Change visibility of generators
+
 ### Version 0.2.0 (April 12th, 2021)
 
 * Add support for silent captures (`_:`)
