@@ -1,7 +1,7 @@
 S = _:B_WHITESPACE                          # Whitespace
 DEC_SEP = _:("." | ",")                     # Decimal separator
 
-int = B_ASCII_DIGIT+                        # Integer
+int = @:(B_ASCII_DIGIT+)                    # Integer
 float = int DEC_SEP int                     # Floating-point number
 number = int | float                        # Number
 

@@ -65,12 +65,7 @@ fn eval_num(num: &matched::number) -> f64 {
 }
 
 fn eval_int(int: &matched::int) -> f64 {
-    int.matched
-        .iter()
-        .map(|c| c.matched)
-        .collect::<String>()
-        .parse::<f64>()
-        .unwrap()
+    int.matched.parse::<f64>().unwrap()
 }
 
 fn eval_float(float: &matched::float) -> f64 {
