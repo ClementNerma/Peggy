@@ -2,6 +2,11 @@
 
 ## Pre-1.0 versions
 
+### Version 0.4.1 (April 13th, 2021)
+
+* Rename the `RuleContent` type to `Rule`
+* Add declaration location and name to the `Rule` type
+
 ### Version 0.4.0 (April 13th, 2021)
 
 * Rename:

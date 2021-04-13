@@ -1,5 +1,5 @@
 use super::errors::{ParserError, ParserErrorContent};
-use super::parser::{parse_rule_content, ParserLoc, PatternRepetition, Pattern};
+use super::parser::{parse_rule_pattern, ParserLoc, Pattern, PatternRepetition};
 use std::rc::Rc;
 
 /// Try to match a constant string pattern
@@ -113,7 +113,10 @@ pub fn group(input: &str) -> Result<Option<(Rc<Pattern>, usize)>, ParserError> {
     }
 
     Ok(Some((
-        Rc::new(parse_rule_content(&input[1..group_length - 1], ParserLoc::new(0, 1))?.0),
+        Rc::new(parse_rule_pattern(
+            &input[1..group_length - 1],
+            ParserLoc::new(0, 1),
+        )?),
         group_length,
     )))
 }

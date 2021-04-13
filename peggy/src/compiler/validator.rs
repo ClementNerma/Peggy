@@ -1,5 +1,5 @@
 use super::errors::{ParserError, ParserErrorContent};
-use super::parser::{PegSyntaxTree, Pattern, RulePatternValue};
+use super::parser::{Pattern, PegSyntaxTree, RulePatternValue};
 use super::utils::{
     add_parser_loc, is_builtin_rule_name, is_external_rule_name, is_valid_builtin_rule_name,
 };

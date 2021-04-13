@@ -260,7 +260,7 @@ pub fn is_silent_pattern<'a>(pst: &'a PegSyntaxTree, silent_rules: &mut HashSet<
 pub fn gen_rust_rule_type<'a>(
     state: &mut InternalState<'a>,
     visiting: &'a str,
-    rule: &'a RuleContent,
+    rule: &'a Rule,
 ) -> Option<TokenStream> {
     gen_rust_rule_pattern_type(state, visiting, rule.pattern())
 }
@@ -473,7 +473,7 @@ pub static RUST_RESERVED_KEYWORDS: &[&str] = &[
 pub fn gen_rust_rule_matcher<'a>(
     state: &mut InternalState<'a>,
     name: &'a str,
-    rule: &'a RuleContent,
+    rule: &'a Rule,
 ) -> TokenStream {
     let ident = make_safe_ident(name);
 
