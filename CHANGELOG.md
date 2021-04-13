@@ -4,54 +4,55 @@
 
 ### Version 0.5.2 (April 13th, 2021)
 
-* Rename error variants
-* Improve some error messages
+* **BREAKING:** Rename error variants
+* **QoF:** Improve some error messages
 
 ### Version 0.5.1 (April 13th, 2021)
 
-* Forbid empty strings in patterns
-* Forbid potentially-empty union members (which would lead to infinite loops)
-* Add length in patterns
-* Fixed wrong column display in patterns declaration
+* **BREAKING:** Forbid empty strings in patterns
+* **BREAKING:** Forbid potentially-empty union members (which would lead to infinite loops)
+* **Minor:** Add length in patterns
+* **Fix:** wrong column displayed in patterns declaration
 
 ### Version 0.5.0 (April 13th, 2021)
 
-* Introduce atomic rules
-* Various bug fixes
+* **MAJOR:** Introduce atomic rules
+* **Fix:** Various bug fixes
 
 ### Version 0.4.2 (April 13th, 2021)
 
-* Detect unused rules
+* **BREAKING:** Detect unused rules
 
 ### Version 0.4.1 (April 13th, 2021)
 
-* Rename the `RuleContent` type to `Rule`
-* Add declaration location and name to the `Rule` type
+* **BREAKING:** Rename the `RuleContent` type to `Rule`
+* **Minor:** Add declaration location and name to the `Rule` type
 
 ### Version 0.4.0 (April 13th, 2021)
 
-* Rename:
+* **BREAKING:** Rename:
   * `Patterns` to `Rules`
   * `Pieces` to `Patterns`
   * `Sub-pieces` to `Pieces`
   * So now we have rules being made of patterns, and themselves of pieces
+* **BREAKING:** Types have been renamed accordingly
 
 ### Version 0.3.0 (April 12th, 2021)
 
-* Introduce the [parser generator](peggy_derive/)
+* **MAJOR:** Introduce the [parser generator](peggy_derive/)
 
 ### Version 0.2.2 (April 12th, 2021)
 
-* Make the `GRAMMAR_ENTRYPOINT_PATTERN` constant public
-* Remove unstable builtin patterns `B_EOI`, `B_TRUE` and `B_FALSE`
+* **BREAKING:** Remove unstable builtin patterns `B_EOI`, `B_TRUE` and `B_FALSE`
+* **Minor:** Make the `GRAMMAR_ENTRYPOINT_PATTERN` constant public
 
 ### Version 0.2.1 (April 12th, 2021)
 
-* Change visibility of generators
+* **Minor:** Change visibility of generators
 
 ### Version 0.2.0 (April 12th, 2021)
 
-* Add support for silent captures (`_:`)
+* **MAJOR:** Add support for silent patterns (`_:`)
 
 ### Version 0.1.0 (April 9th, 2021)
 
