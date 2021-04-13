@@ -31,7 +31,7 @@ pub fn execute<'a, 'b: 'a>(
     // Success!
     Ok(MatchedRule {
         name: "main",
-        data: data.unwrap_or(MatchedData::SilentRule),
+        data: data.unwrap_or(MatchedData::SilentPattern),
     })
 }
 
@@ -211,7 +211,7 @@ pub fn match_pattern_value<'a, 'b: 'a>(
                     } else {
                         Some(MatchedData::Rule(Rc::new(MatchedRule {
                             name,
-                            data: data.unwrap_or(MatchedData::SilentRule),
+                            data: data.unwrap_or(MatchedData::SilentPattern),
                         })))
                     },
                     len,

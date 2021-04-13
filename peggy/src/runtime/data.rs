@@ -46,12 +46,12 @@ pub enum MatchedData<'a> {
     /// Matched an atomic pattern
     AtomicPattern(&'a str),
 
+    /// Matched a silent pattern
+    SilentPattern,
+
     /// Matched a builtin rule
     BuiltinRule { name: &'a str, symbol: Option<char> },
 
     /// Matched an external rule
     ExternalRule { name: &'a str, matched: &'a str },
-
-    /// Matched a silent rule
-    SilentRule,
 }

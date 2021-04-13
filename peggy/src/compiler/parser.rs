@@ -448,11 +448,11 @@ fn parse_pattern_piece(input: &str) -> Result<(Pattern, usize), ParserError> {
         return Err(ParserError::new(
             ParserLoc::new(0, 0),
             0,
-            ParserErrorContent::ExpectedRuleContent,
+            ParserErrorContent::ExpectedPattern,
             Some(match input.chars().next() {
                 Some('\'') => "strings require double quotes",
                 Some(_) => "You may either open a group with '(', a string with '\"', or specify a rule's name",
-                None => "you need to provide a rule pattern, such as a group, a string or a rule's name"
+                None => "you need to provide a rule pattern, such as a group, a string or another rule's name"
             })
         ));
     };

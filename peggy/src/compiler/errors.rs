@@ -19,7 +19,7 @@ pub fn add_base_err_loc(base_line: usize, base_col: usize, err: ParserError) -> 
                 }
             }
             ParserErrorContent::ExpectedRuleAssignmentOp
-            | ParserErrorContent::ExpectedRuleContent
+            | ParserErrorContent::ExpectedPattern
             | ParserErrorContent::ExpectedRuleDeclaration
             | ParserErrorContent::ExpectedPatternSeparatorOrEndOfLine
             | ParserErrorContent::ExpectedFollowContinuation
@@ -103,7 +103,7 @@ pub enum ParserErrorContent {
     ExpectedRuleAssignmentOp,
     ReservedUppercaseRuleName,
     DuplicateRuleName,
-    ExpectedRuleContent,
+    ExpectedPattern,
     UnclosedGroup { started_at: ParserLoc },
     ExpectedPatternSeparatorOrEndOfLine,
     ExpectedFollowContinuation,
@@ -135,7 +135,7 @@ impl fmt::Display for ParserErrorContent {
             Self::DuplicateRuleName => {
                 write!(f, "Another rule was already declared with this name")
             }
-            Self::ExpectedRuleContent => write!(f, "Expected rule content"),
+            Self::ExpectedPattern => write!(f, "Expected a pattern"),
             Self::UnclosedGroup { started_at } => write!(
                 f,
                 "Unclosed group starting at line {}, column {}",

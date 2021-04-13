@@ -2,6 +2,11 @@
 
 ## Pre-1.0 versions
 
+### Version 0.5.2 (April 13th, 2021)
+
+* Rename error variants
+* Improve some error messages
+
 ### Version 0.5.1 (April 13th, 2021)
 
 * Forbid empty strings in patterns
