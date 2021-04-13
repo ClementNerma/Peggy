@@ -233,6 +233,7 @@ pub fn parse_rule_pattern(input: &str, base_loc: ParserLoc) -> Result<Pattern, P
                         relative_loc: patterns[0].relative_loc,
                         repetition: None,
                         is_silent: false,
+                        is_atomic: false,
                         value: RulePatternValue::Suite(patterns),
                     }
                 }
@@ -280,6 +281,7 @@ pub fn parse_rule_pattern(input: &str, base_loc: ParserLoc) -> Result<Pattern, P
                             relative_loc: ParserLoc { line: 0, col: 0 },
                             repetition: None,
                             is_silent: false,
+                            is_atomic: false,
                             // If the parser stopped on the first pattern because it encountered an union separator, the remaining content
                             // should be put inside an union.
                             // Otherwise, and if no union separator was found during the parsing on the whole rule's content,
@@ -433,7 +435,12 @@ pub fn parse_sub_pattern(
 fn parse_pattern_piece(input: &str) -> Result<(Pattern, usize), ParserError> {
     // Determine if the piece is silent
     let (trimmed, is_silent) = parse_rule_pattern_silence(input);
-    let input = &input[trimmed..];
+
+    // Determine if the piece is atomic
+    let (trimmed2, is_atomic) = parse_rule_pattern_atomicity(input);
+
+    // Update the input
+    let input = &input[trimmed + trimmed2..];
 
     let (value, len) =
     // Check if the value is a constant string
@@ -471,9 +478,10 @@ fn parse_pattern_piece(input: &str) -> Result<(Pattern, usize), ParserError> {
             relative_loc: ParserLoc { line: 0, col: 0 },
             value,
             is_silent,
+            is_atomic,
             repetition,
         },
-        trimmed + len + if repetition.is_some() { 1 } else { 0 },
+        trimmed + trimmed2 + len + if repetition.is_some() { 1 } else { 0 },
     ))
 }
 
@@ -482,6 +490,17 @@ fn parse_pattern_piece(input: &str) -> Result<(Pattern, usize), ParserError> {
 /// If the pattern is indicated to be non-capturing (silent), the consumed size will be returned with the `true` value
 pub fn parse_rule_pattern_silence(input: &str) -> (usize, bool) {
     if input.starts_with("_:") {
+        (2, true)
+    } else {
+        (0, false)
+    }
+}
+
+/// Parse a possibly atomic pattern beginning
+///
+/// If the pattern is indicated to be atomic, the consumed size will be returned with the `true` value
+pub fn parse_rule_pattern_atomicity(input: &str) -> (usize, bool) {
+    if input.starts_with("@:") {
         (2, true)
     } else {
         (0, false)
@@ -553,6 +572,9 @@ pub struct Pattern<'a> {
     /// Is the pattern silent?
     is_silent: bool,
 
+    /// Is the pattern atomic?
+    is_atomic: bool,
+
     /// The pattern's value
     value: RulePatternValue<'a>,
 }
@@ -571,6 +593,11 @@ impl<'a> Pattern<'a> {
     /// Is the pattern silent?
     pub fn is_silent(&self) -> bool {
         self.is_silent
+    }
+
+    /// Is the pattern atomic?
+    pub fn is_atomic(&self) -> bool {
+        self.is_atomic
     }
 
     /// Get the pattern's value

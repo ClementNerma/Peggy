@@ -1,4 +1,4 @@
-use crate::compiler::{PegSyntaxTree, Pattern, RulePatternValue};
+use crate::compiler::{Pattern, PegSyntaxTree, RulePatternValue};
 
 /// Generate a Peggy grammar from its syntax tree
 ///
@@ -17,6 +17,8 @@ pub fn gen_peggy(pst: &PegSyntaxTree) -> String {
 pub fn gen_peggy_pattern(pattern: &Pattern) -> String {
     let mut pattern_value = if pattern.is_silent() {
         "_:".to_string()
+    } else if pattern.is_atomic() {
+        "@:".to_string()
     } else {
         String::new()
     };

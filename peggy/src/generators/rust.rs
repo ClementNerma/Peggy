@@ -15,7 +15,7 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree) -> TokenStream {
         cst_string_counters: HashMap::new(),
         used_builtin_rules: HashSet::new(),
         rule_types: HashMap::new(),
-        silent_rules: list_silent_rules(pst),
+        dataless_rules: list_dataless_rules(pst),
         highest_union_used: 0,
     };
 
@@ -52,7 +52,7 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree) -> TokenStream {
     let mut rule_types_enum_variants: Vec<_> = pst
         .rules()
         .iter()
-        .filter(|(name, _)| !state.silent_rules.contains(*name))
+        .filter(|(name, _)| state.dataless_rules.get(*name) != Some(&DataLessType::Silent))
         .map(|(name, _)| {
             let variant = make_safe_ident(name);
             quote! { #variant(super::matched::#variant) }
@@ -218,42 +218,46 @@ pub fn build_rules_list<'a>(pst: &'a PegSyntaxTree, path: &mut Vec<&'a str>, tre
     }
 }
 
-pub fn list_silent_rules<'a>(pst: &'a PegSyntaxTree) -> HashSet<&'a str> {
-    let mut silent_rules = HashSet::new();
+pub fn list_dataless_rules<'a>(pst: &'a PegSyntaxTree) -> HashMap<&'a str, DataLessType> {
+    let mut dataless_rules = HashMap::new();
     
     for name in pst.rules().keys() {
-        check_rule_silence(pst, &mut silent_rules, name);
+        check_if_rule_dataless(pst, &mut dataless_rules, name);
     }
 
-    silent_rules
+    dataless_rules
 }
 
-pub fn check_rule_silence<'a>(pst: &'a PegSyntaxTree, silent_rules: &mut HashSet<&'a str>, name: &'a str) -> bool {
-    if silent_rules.contains(&name) {
-        return true;
+pub fn check_if_rule_dataless<'a>(pst: &'a PegSyntaxTree, dataless_rules: &mut HashMap<&'a str, DataLessType>, name: &'a str) -> Option<DataLessType> {
+    if let Some(typ) = dataless_rules.get(&name) {
+        return Some(*typ);
     }
     
     if is_builtin_rule_name(name) {
-        false
-    } else if is_silent_pattern(pst, silent_rules, pst.rules()[name].pattern()) {
-        silent_rules.insert(name);
-        true
+        None
+    } else if let Some(typ) = is_dataless_pattern(pst, dataless_rules, pst.rules()[name].pattern()) {
+        dataless_rules.insert(name, typ);
+        Some(typ)
     } else {
-        false
+        None
     }
 }
 
-pub fn is_silent_pattern<'a>(pst: &'a PegSyntaxTree, silent_rules: &mut HashSet<&'a str>, pattern: &'a Pattern) -> bool {
+pub fn is_dataless_pattern<'a>(pst: &'a PegSyntaxTree, dataless_rules: &mut HashMap<&'a str, DataLessType>, pattern: &'a Pattern) -> Option<DataLessType> {
     if pattern.is_silent() {
-        return true;
+        return Some(DataLessType::Silent);
+    } else if pattern.is_atomic() {
+        return Some(DataLessType::Atomic);
     }
 
     match pattern.value() {
-        RulePatternValue::CstString(_) => false,
-        RulePatternValue::Rule(name) => check_rule_silence(pst, silent_rules, name),
-        RulePatternValue::Group(group) => is_silent_pattern(pst, silent_rules, group),
-        RulePatternValue::Suite(patterns) => patterns.iter().all(|pattern| is_silent_pattern(pst, silent_rules, pattern)),
-        RulePatternValue::Union(patterns) => patterns.iter().all(|pattern| is_silent_pattern(pst, silent_rules, pattern))
+        RulePatternValue::CstString(_) => None,
+        RulePatternValue::Rule(name) => check_if_rule_dataless(pst, dataless_rules, name),
+        RulePatternValue::Group(group) => is_dataless_pattern(pst, dataless_rules, group),
+        RulePatternValue::Suite(patterns) | RulePatternValue::Union(patterns) => {
+            let prev = is_dataless_pattern(pst, dataless_rules, patterns.get(0).unwrap());
+            prev.filter(|prev| patterns.iter().skip(1).all(|pat| is_dataless_pattern(pst, dataless_rules, pat) == Some(*prev)))
+        }
     }
 }
 
@@ -274,8 +278,11 @@ pub fn gen_rust_rule_pattern_type<'a>(
         return None;
     }
 
-    let pattern_type =
-        gen_rust_rule_pattern_value_type(state,  visiting, pattern.value())?;
+    let pattern_type = if pattern.is_atomic() {
+        quote! { String }
+    } else {
+        gen_rust_rule_pattern_value_type(state,  visiting, pattern.value())?
+    };
 
     match pattern.repetition() {
         None => Some(pattern_type),
@@ -308,7 +315,7 @@ pub fn gen_rust_rule_pattern_value_type<'a>(
 
             if is_builtin_rule_name(name) {
                 Some(quote! { super::matched::#ident })
-            } else if state.silent_rules.contains(name) {
+            } else if let Some(DataLessType::Silent) = state.dataless_rules.get(name) {
                 None
             } else if state.recursive_paths[visiting].contains(name) {
                 Some(quote! { std::rc::Rc<super::matched::#ident> })
@@ -339,8 +346,8 @@ pub fn gen_rust_rule_pattern_value_type<'a>(
                 .iter()
                 .map(|pattern| {
                     gen_rust_rule_pattern_type(state, visiting,pattern)
+                        .unwrap_or_else(|| quote! { () })
                 })
-                .filter_map(|pattern| pattern)
                 .collect();
 
             let variants_len = patterns.len();
@@ -350,10 +357,6 @@ pub fn gen_rust_rule_pattern_value_type<'a>(
             if patterns.is_empty() {
                 None
             } else {
-                if patterns.len() > state.highest_union_used {
-                    state.highest_union_used = patterns.len();
-                }
-
                 Some(quote! { super::unions::#union_type<#(#types),*> })
             }
         }
@@ -479,7 +482,7 @@ pub fn gen_rust_rule_matcher<'a>(
 
     let pattern_matcher = gen_rust_rule_pattern_matcher(state, name, rule.pattern());
 
-    let body = if state.silent_rules.contains(name) /*|| state.rule_types[name].is_none()*/ {
+    let body = if let Some(DataLessType::Silent) = state.dataless_rules.get(name) {
         quote! { #pattern_matcher }
     } else if name != GRAMMAR_ENTRYPOINT_RULE {
         quote! { #pattern_matcher.and_then(|(matched, consumed)| Ok((super::matched::#ident { matched, at: offset }, consumed))) }
@@ -493,7 +496,7 @@ pub fn gen_rust_rule_matcher<'a>(
         }) }
     };
 
-    let ret_type = if state.silent_rules.contains(name) {
+    let ret_type = if let Some(DataLessType::Silent) = state.dataless_rules.get(name) {
         quote! { () }
     } else {
         quote! { super::matched::#ident }
@@ -501,6 +504,8 @@ pub fn gen_rust_rule_matcher<'a>(
 
     quote! {
         pub fn #ident (input: &str, offset: usize) -> Result<(#ret_type, usize), super::PegError> {
+            let base_input_for_str = input;
+            let base_offset_for_str = offset;
             #body
         }
     }
@@ -515,6 +520,10 @@ pub fn gen_rust_rule_pattern_matcher<'a>(
 
     let matcher = if pattern.is_silent() {
         quote! { #matcher.map(|(_, consumed)| ((), consumed)) }
+    } else if pattern.is_atomic() {
+        quote! { #matcher.map(|(_, consumed)| {
+            (base_input_for_str[(offset - base_offset_for_str)..(offset - base_offset_for_str + consumed)].to_string(), consumed)
+        }) }
     } else {
         quote! { #matcher }
     };
@@ -522,79 +531,55 @@ pub fn gen_rust_rule_pattern_matcher<'a>(
     match pattern.repetition() {
         None => quote! { #matcher },
         Some(rep) => match rep {
-            PatternRepetition::Any => {
-                let push_strategy = if pattern.is_silent() {
-                    quote! { }
+            PatternRepetition::Any | PatternRepetition::OneOrMore => {
+                let (storage, push_strategy, ret_val) = if pattern.is_silent() {
+                    (None, None, quote! { () })
                 } else {
-                    quote! { out.push(piece_data); }
+                    (Some(quote! { let mut out = vec![]; }), Some(quote! { out.push(piece_data); }), quote! { out })
+                };
+
+                let (init_var, init_set, err_handling) = if rep == PatternRepetition::Any {
+                    (None, None, Some(quote! { Err(_) => break Ok((#ret_val, consumed)) }))
+                } else {
+                    (
+                        Some(quote! { let mut one_success = false; }),
+                        Some(quote! { one_success = true; }),
+                        Some(quote! { Err(err) => break if one_success { Ok((#ret_val, consumed)) } else { Err(err) } })
+                    )
                 };
 
                 quote! {
                     {
-                        let mut out = vec![];
-                        let mut consumed = 0;
+                        #storage
                         let mut input = input;
+                        let mut consumed = 0;
+                        let mut offset = offset;
+                        #init_var
 
                         loop {
                             let result = #matcher;
 
                             match result {
                                 Ok((piece_data, piece_consumed)) => {
+                                    #init_set
                                     #push_strategy
                                     consumed += piece_consumed;
+                                    offset += piece_consumed;
                                     input = &input[piece_consumed..];
                                 },
 
-                                Err(_) => break Ok((out, consumed))
+                                #err_handling
                             }
                         }
                     }
                 }
             },
-
-            PatternRepetition::OneOrMore => {
-                let push_strategy = if pattern.is_silent() {
-                    quote! { }
-                } else {
-                    quote! { out.push(piece_data); }
-                };
-
-                quote! {
-                    {
-                        let mut out = vec![];
-                        let mut consumed = 0;
-                        let mut input = input;
-                        let mut one_success = false;
-
-                        loop {
-                            let result = #matcher;
-
-                            match result {
-                                Ok((piece_data, piece_consumed)) => {
-                                    #push_strategy
-                                    input = &input[piece_consumed..];
-                                    consumed += piece_consumed;
-                                    one_success = true;
-                                },
-
-                                Err(err) => {
-                                    break if one_success {
-                                        Ok((out, consumed))
-                                    } else {
-                                        Err(err)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
             PatternRepetition::Optional => quote! {
                 {
                     let result = #matcher;
                     match result {
-                        Ok(data) => Ok(Some(data)),
-                        Err(_) => Ok(None)
+                        Ok((data, consumed)) => Ok((Some(data), consumed)),
+                        Err(_) => Ok((None, 0))
                     }
                 }
             }
@@ -653,18 +638,27 @@ pub fn gen_rust_rule_pattern_value_matcher<'a>(
                 .map(|(i, pattern)| {
                     let matcher = gen_rust_rule_pattern_matcher(state, visiting, pattern);
                     
-                    let is_silent = pattern.is_silent() || matches!(pattern.value(), RulePatternValue::Rule(name) if state.silent_rules.contains(name));
+                    let mut is_silent = pattern.is_silent();
 
-                    let mut storage = format_ident!("p{}", i);
-
-                    if is_silent {
-                        storage = format_ident!("_");
-                    } else {
-                        used.push(storage.clone());
+                    if !is_silent {
+                        if let RulePatternValue::Rule(name) = pattern.value() {
+                            if let Some(DataLessType::Silent) = state.dataless_rules.get(name) {
+                                is_silent = true;
+                            }
+                        }
                     }
 
+                    let storage = if is_silent {
+                        format_ident!("_")
+                    } else {
+                        used.push(format_ident!("p{}", i));
+                        format_ident!("p{}", i)
+                    };
+
                     quote! {
-                        let (#storage, piece_consumed) = match #matcher {
+                        let result = #matcher;
+
+                        let (#storage, piece_consumed) = match result {
                             Ok(result) => result,
                             Err(err) => break Err(err)
                         };
@@ -692,9 +686,6 @@ pub fn gen_rust_rule_pattern_value_matcher<'a>(
 
                     #(#create_storage)*
 
-                    // TODO: here too
-                    offset -= consumed;
-
                     break Ok((#ret_success_value, consumed));
                 }
             }
@@ -711,19 +702,27 @@ pub fn gen_rust_rule_pattern_value_matcher<'a>(
                     let union_variant = format_ident!("{}", get_enum_variant(i));
 
                     quote! {
-                        match #matcher {
-                            Ok((data, consumed)) => match candidate {
-                                Some((_, candidate_consumed)) => if consumed > candidate_consumed {
-                                    candidate = Some((super::unions::#union_ident::#union_variant(data), consumed));
+                        {
+                            let result = #matcher;
+                            
+                            match result {
+                                Ok((data, consumed)) => match candidate {
+                                    Some((_, candidate_consumed)) => if consumed > candidate_consumed {
+                                        candidate = Some((super::unions::#union_ident::#union_variant(data), consumed));
+                                    },
+                                    None => candidate = Some((super::unions::#union_ident::#union_variant(data), consumed))
                                 },
-                                None => candidate = Some((super::unions::#union_ident::#union_variant(data), consumed))
-                            },
 
-                            Err(err) => errors.push(std::rc::Rc::new(err))
+                                Err(err) => errors.push(std::rc::Rc::new(err))
+                            }
                         }
                     }
                 })
                 .collect();
+
+            if tries.len() > state.highest_union_used {
+                state.highest_union_used = tries.len();
+            }
 
             quote! {
                 {
@@ -804,6 +803,12 @@ pub struct InternalState<'a> {
     cst_string_counters: HashMap<&'a str, usize>,
     used_builtin_rules: HashSet<&'a str>,
     rule_types: HashMap<&'a str, Option<TokenStream>>,
-    silent_rules: HashSet<&'a str>,
+    dataless_rules: HashMap<&'a str, DataLessType>,
     highest_union_used: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DataLessType {
+    Silent,
+    Atomic
 }

@@ -37,6 +37,31 @@ main = expr                                 # Grammar's entrypoint
 
 This will be able to match complex operations like `(3 (9.3 3 /) +) (5 (2 3 /) /) /`.
 
+## Parser generator usage
+
+Here is an example usage of the parser generator:
+
+```rust
+#[macro_use]
+extern crate peggy_derive;
+
+#[peggy_grammar(filename = "prn.peggy")]
+pub mod prn_grammar {}
+
+fn main() {
+    // Evaluate the expression
+    let success = prn_grammar::exec("(3 (9.3 3 /) +) (5 (2 3 /) /) /").unwrap();
+
+    // Do your stuff
+}
+```
+
+The success type returned by `::exec` is generated depending on the input grammar.
+
+If your IDE doesn't expand procedural macros and doesn't provide you informations about the generated types, you can take a look at the result's content by using the `dbg!()` macro (or `format!("{:#?}")` for formatting purposes).
+
+All of the generated types implement the `Debug` and `Clone` traits.
+
 ## Performances
 
 On my computer (Intel Core i7-9700F), in release mode the grammar is parsed in 16 microseconds (0.016 milliseconds) while the runtime engine takes about 128 microseconds (0.128 milliseconds).
@@ -99,6 +124,10 @@ Patterns can be decorated with a _repetition model_ (no whitespace must be prese
 * `?`: match this pattern one time if possible, zero matching is allowed
 
 Patterns can also be made _silent_ to avoid capturing anything, by prefixing them with `_:` (no space allowed).
+
+There are also _atomic patterns_, whose content is provided as a single string when matching. They are prefixed with `@:` (no space allowed).
+
+Please note that, unlike any other feature, atomic patterns will require to allocate the matched string. This shouldn't be a problem as atomics are designed to handle very small strings, but keep that in mind.
 
 ## Builtin rules
 
