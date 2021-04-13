@@ -29,6 +29,7 @@ pub fn add_base_err_loc(base_line: usize, base_col: usize, err: ParserError) -> 
             | ParserErrorContent::MissingMainRule
             | ParserErrorContent::UnknownRule
             | ParserErrorContent::UnknownBuiltinRule
+            | ParserErrorContent::UnusedRule
             | ParserErrorContent::UnterminatedMultiLineComment { started_at: _ } // As this one is global, it does not adaptation
             | ParserErrorContent::IllegalSymbol(_) => err.content,
         },
@@ -110,6 +111,7 @@ pub enum ParserErrorContent {
     UnknownBuiltinRule,
     UnterminatedMultiLineComment { started_at: ParserLoc },
     MissingMainRule,
+    UnusedRule,
 }
 
 impl fmt::Display for ParserErrorContent {
@@ -168,6 +170,7 @@ impl fmt::Display for ParserErrorContent {
                 started_at.col() + 1
             ),
             Self::MissingMainRule => write!(f, "Main rule is missing"),
+            Self::UnusedRule => write!(f, "This rule is declared but never used"),
         }
     }
 }

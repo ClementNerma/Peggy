@@ -1,27 +1,41 @@
 use super::errors::{ParserError, ParserErrorContent};
 use super::parser::{Pattern, PegSyntaxTree, RulePatternValue};
-use super::utils::{
-    add_parser_loc, is_builtin_rule_name, is_external_rule_name, is_valid_builtin_rule_name,
-};
 use super::ParserLoc;
+use super::{utils::*, GRAMMAR_ENTRYPOINT_RULE};
+use std::collections::HashSet;
 
 /// Validate a Peggy expression parsed with [`super::parse_peg_nocheck`]
 ///
 /// Expressions parsed with [`super::parse_peg`] don't require this check, as it is already performed automatically.
-pub fn validate_parsed_peg(parsed: &PegSyntaxTree) -> Result<(), ParserError> {
+pub fn validate_parsed_peg(pst: &PegSyntaxTree) -> Result<(), ParserError> {
+    // List used patterns
+    let mut used = HashSet::new();
+
     // Validate each rule one by one
-    for rule in parsed.rules().values() {
-        validate_pattern_recursive(parsed, rule.pattern().relative_loc(), rule.pattern())?;
+    for rule in pst.rules().values() {
+        validate_pattern_recursive(
+            pst,
+            rule.pattern().relative_loc(),
+            rule.pattern(),
+            &mut used,
+        )?;
+    }
+
+    for (name, rule) in pst.rules() {
+        if *name != GRAMMAR_ENTRYPOINT_RULE && !used.contains(*name) {
+            return Err(ParserError::new(rule.decl_loc(), name.len(), ParserErrorContent::UnusedRule, Some("if you are doing some testing, you can comment out the rule by starting it with the '#' symbol")));
+        }
     }
 
     Ok(())
 }
 
 /// Validate a [`RulePattern`] recursively
-fn validate_pattern_recursive(
-    parsed: &PegSyntaxTree,
+fn validate_pattern_recursive<'a>(
+    parsed: &'a PegSyntaxTree,
     loc: ParserLoc,
-    pattern: &Pattern,
+    pattern: &'a Pattern,
+    used: &mut HashSet<&'a str>,
 ) -> Result<(), ParserError> {
     match pattern.value() {
         // Constant strings don't need any validation
@@ -31,10 +45,10 @@ fn validate_pattern_recursive(
         RulePatternValue::Rule(name) => {
             // Uppercase-only rules cannot be declared normally, and can be used to refer to an external rule
             // Else, ensure the provided rule has been declared
-            if parsed.rules().contains_key(name)
-                || is_external_rule_name(name)
-                || is_valid_builtin_rule_name(name)
-            {
+            if parsed.rules().contains_key(name) {
+                used.insert(name);
+                Ok(())
+            } else if is_external_rule_name(name) || is_valid_builtin_rule_name(name) {
                 Ok(())
             } else {
                 Err(ParserError::new(
@@ -55,6 +69,7 @@ fn validate_pattern_recursive(
             parsed,
             add_parser_loc(loc.line(), loc.col(), pattern.relative_loc()),
             pattern,
+            used,
         ),
 
         // Develop suites and unions
@@ -64,6 +79,7 @@ fn validate_pattern_recursive(
                     parsed,
                     add_parser_loc(loc.line(), loc.col(), pattern.relative_loc()),
                     pattern,
+                    used,
                 )?;
             }
 

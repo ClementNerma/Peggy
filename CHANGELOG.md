@@ -2,6 +2,10 @@
 
 ## Pre-1.0 versions
 
+### Version 0.4.2 (April 13th, 2021)
+
+* Detect unused rules
+
 ### Version 0.4.1 (April 13th, 2021)
 
 * Rename the `RuleContent` type to `Rule`
