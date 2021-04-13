@@ -135,28 +135,30 @@ Please note that, unlike any other feature, atomic patterns will require to allo
 
 There are multiple builtin rules, which will only match at most one single character:
 
-| Rule's name            | Description                   |
-| ---------------------- | ----------------------------- |
-| `B_ANY`                | Any character                 |
-| `B_NEWLINE_CR`         | Match `\r` newline characters |
-| `B_NEWLINE_LF`         | Match `\n` newline characters |
-| `B_DOUBLE_QUOTE`       | Match a double quote          |
-| `B_ASCII`              | ASCII characters              |
-| `B_ASCII_ALPHABETIC`   | ASCII alphabetic characters   |
-| `B_ASCII_ALPHANUMERIC` | ASCII alphanumeric characters |
-| `B_ASCII_CONTROL`      | ASCII control characters      |
-| `B_ASCII_DIGIT`        | ASCII digits                  |
-| `B_ASCII_GRAPHIC`      | ASCII graphic characters      |
-| `B_ASCII_HEXDIGIT`     | ASCII hexidecimal digits      |
-| `B_ASCII_LOWERCASE`    | ASCII lowercase characters    |
-| `B_ASCII_PUNCTUATION`  | ASCII punctuation characters  |
-| `B_ASCII_UPPERCASE`    | ASCII uppercase characters    |
-| `B_ASCII_WHITESPACE`   | ASCII whitespaces             |
-| `B_CONTROL`            | Unicode control characters    |
-| `B_LOWERCASE`          | Unicode lowercase characters  |
-| `B_NUMERIC`            | Unicode numeric characters    |
-| `B_UPPERCASE`          | Unicode uppercase characters  |
-| `B_WHITESPACE`         | Unicode whitespaces           |
+| Rule's name            | Description                     |
+| ---------------------- | ------------------------------- |
+| `B_ANY`                | Any character                   |
+| `B_NEWLINE_CR`         | Match `\r` newline characters   |
+| `B_NEWLINE_LF`         | Match `\n` newline characters   |
+| `B_DOUBLE_QUOTE`       | Match a double quote            |
+| `B_ASCII`              | ASCII characters                |
+| `B_ASCII_ALPHABETIC`   | ASCII alphabetic characters     |
+| `B_ASCII_ALPHANUMERIC` | ASCII alphanumeric characters   |
+| `B_ASCII_CONTROL`      | ASCII control characters        |
+| `B_ASCII_DIGIT`        | ASCII digits                    |
+| `B_ASCII_GRAPHIC`      | ASCII graphic characters        |
+| `B_ASCII_HEXDIGIT`     | ASCII hexidecimal digits        |
+| `B_ASCII_LOWERCASE`    | ASCII lowercase characters      |
+| `B_ASCII_PUNCTUATION`  | ASCII punctuation characters    |
+| `B_ASCII_UPPERCASE`    | ASCII uppercase characters      |
+| `B_ASCII_WHITESPACE`   | ASCII whitespaces               |
+| `B_ALPHABETIC`         | Unicode alphabetic characters   |
+| `B_ALPHANUMERIC`       | Unicode alphanumeric characters |
+| `B_CONTROL`            | Unicode control characters      |
+| `B_LOWERCASE`          | Unicode lowercase characters    |
+| `B_NUMERIC`            | Unicode numeric characters      |
+| `B_UPPERCASE`          | Unicode uppercase characters    |
+| `B_WHITESPACE`         | Unicode whitespaces             |
 
 ## External characters
 

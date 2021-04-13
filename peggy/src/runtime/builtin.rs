@@ -26,6 +26,8 @@ pub fn match_builtin_rule(rule_name: &str, next_char: Option<char>) -> Option<bo
         "B_ASCII_UPPERCASE" => next_char.map(|c| c.is_ascii_uppercase()).unwrap_or(false),
         "B_ASCII_WHITESPACE" => next_char.map(|c| c.is_ascii_whitespace()).unwrap_or(false),
 
+        "B_ALPHABETIC" => next_char.map(|c| c.is_alphabetic()).unwrap_or(false),
+        "B_ALPHANUMERIC" => next_char.map(|c| c.is_alphanumeric()).unwrap_or(false),
         "B_CONTROL" => next_char.map(|c| c.is_control()).unwrap_or(false),
         "B_LOWERCASE" => next_char.map(|c| c.is_lowercase()).unwrap_or(false),
         "B_NUMERIC" => next_char.map(|c| c.is_numeric()).unwrap_or(false),
