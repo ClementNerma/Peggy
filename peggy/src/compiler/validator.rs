@@ -1,6 +1,5 @@
 use super::errors::{ParserError, ParserErrorContent};
 use super::parser::{Pattern, PatternRepetition, PegSyntaxTree, RulePatternValue};
-use super::ParserLoc;
 use super::{utils::*, GRAMMAR_ENTRYPOINT_RULE};
 use std::collections::HashSet;
 
@@ -14,8 +13,7 @@ pub fn validate_parsed_peg(pst: &PegSyntaxTree) -> Result<(), ParserError> {
     // Validate each rule one by one
     for rule in pst.rules().values() {
         validate_pattern_recursive(pst, rule.pattern(), &mut used)?;
-
-        check_potentially_empty_union_members(pst, rule.pattern().loc(), rule.pattern())?;
+        check_potentially_empty_union_members(pst, rule.pattern())?;
     }
 
     for (name, rule) in pst.rules() {
@@ -77,7 +75,6 @@ fn validate_pattern_recursive<'a>(
 /// Check for potentially-empty union members, which could cause infinite loops
 fn check_potentially_empty_union_members<'a>(
     pst: &'a PegSyntaxTree,
-    loc: ParserLoc,
     pattern: &'a Pattern,
 ) -> Result<bool, ParserError> {
     match pattern.repetition() {
@@ -90,24 +87,15 @@ fn check_potentially_empty_union_members<'a>(
     match pattern.value() {
         RulePatternValue::CstString(_) => Ok(false),
 
-        RulePatternValue::Rule(name) => {
-            if is_valid_builtin_rule_name(name) || is_external_rule_name(name) {
-                Ok(false)
-            } else {
-                check_potentially_empty_union_members(pst, loc, pst.rules()[name].pattern())
-            }
-        }
+        RulePatternValue::Rule(_) => Ok(false),
 
         // Develop groups
-        RulePatternValue::Group(pattern) => {
-            check_potentially_empty_union_members(pst, pattern.loc(), pattern)
-        }
+        RulePatternValue::Group(pattern) => check_potentially_empty_union_members(pst, pattern),
 
         // Develop suites and unions
         RulePatternValue::Suite(patterns) => {
             for pattern in patterns {
-                let is_potentially_empty =
-                    check_potentially_empty_union_members(pst, pattern.loc(), pattern)?;
+                let is_potentially_empty = check_potentially_empty_union_members(pst, pattern)?;
 
                 if !is_potentially_empty {
                     return Ok(false);
@@ -119,8 +107,7 @@ fn check_potentially_empty_union_members<'a>(
 
         RulePatternValue::Union(patterns) => {
             for pattern in patterns {
-                let is_potentially_empty =
-                    check_potentially_empty_union_members(pst, pattern.loc(), pattern)?;
+                let is_potentially_empty = check_potentially_empty_union_members(pst, pattern)?;
 
                 if is_potentially_empty {
                     return Err(ParserError::new(

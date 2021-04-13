@@ -1,6 +1,6 @@
 [package]
 name = "peggy"
-version = "0.5.4"
+version = "0.5.5"
 edition = "2018"
 authors = ["Clément Nerma <clement.nerma@gmail.com>"]
 

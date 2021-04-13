@@ -2,6 +2,11 @@
 
 ## Pre-1.0 versions
 
+### Version 0.5.5 (April 13th, 2021)
+
+* **QoF:** Speed up validation of union members
+* **Bugfix:** Stack overflow when validating recursive patterns
+
 ### Version 0.5.4 (April 13th, 2021)
 
 * **Minor:** Added `B_ALPHABETIC` and `B_ALPHANUMERIC` builtin rules
