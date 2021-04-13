@@ -152,7 +152,13 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
 
     quote! {
         pub fn exec(input: &str) -> Result<SuccessData, PegError> {
-            rules::#main_rule(input, 0).map(|(data, _)| data)
+            rules::#main_rule(input, 0).and_then(|(typed_matched, consumed, end_err)| {
+                if input.len() > consumed {
+                    Err(end_err.unwrap_or_else(|| PegErrorContent::ExpectedEndOfInput.at(consumed)))
+                } else {
+                    Ok(typed_matched)
+                }
+            })
         }
 
         pub type SuccessData = matched::#main_rule;
@@ -168,7 +174,7 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
             ExpectedCstString(&'a str),
             FailedToMatchBuiltinRule(&'static str),
             NoMatchInUnion(Vec<std::rc::Rc<PegError<'a>>>),
-            MatchedInNegativePattern,
+            MatchedInNegativePattern(&'a str),
             ExpectedEndOfInput
         }
 

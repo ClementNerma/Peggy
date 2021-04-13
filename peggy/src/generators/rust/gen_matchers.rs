@@ -15,16 +15,8 @@ pub fn gen_rule_matcher<'a>(
 
     let body = if let Some(PatternMode::Silent) = state.non_capturing_rules.get(name) {
         quote! { #pattern_matcher }
-    } else if name != GRAMMAR_ENTRYPOINT_RULE {
-        quote! { #pattern_matcher.and_then(|(matched, consumed)| Ok((super::matched::#ident { matched, at: offset }, consumed))) }
     } else {
-        quote! { #pattern_matcher.and_then(|(matched, consumed)| {
-            if input.len() > consumed {
-                Err(super::PegErrorContent::ExpectedEndOfInput.at(consumed))
-            } else {
-                Ok((super::matched::#ident { matched, at: offset }, consumed))
-            }
-        }) }
+        quote! { #pattern_matcher.and_then(|(matched, consumed, end_err)| Ok((super::matched::#ident { matched, at: offset }, consumed, end_err))) }
     };
 
     let ret_type = if let Some(PatternMode::Silent) = state.non_capturing_rules.get(name) {
@@ -54,7 +46,7 @@ pub fn gen_rule_matcher<'a>(
     };
 
     quote! {
-        pub fn #ident (input: &str, offset: usize) -> Result<(#ret_type, usize), super::PegError> {
+        pub fn #ident (input: &str, offset: usize) -> Result<(#ret_type, usize, Option<super::PegError>), super::PegError> {
             #body_with_eventual_debugger
         }
     }
@@ -68,17 +60,17 @@ pub fn gen_pattern_matcher<'a>(
     let matcher = gen_pattern_value_matcher(state, visiting, pattern.value());
 
     let matcher = match pattern.mode() {
-            Some(PatternMode::Silent) => quote! { #matcher.map(|(_, consumed)| ((), consumed)) },
-            Some(PatternMode::Peek) => quote! { #matcher.map(|(_, _)| ((), 0)) },
+            Some(PatternMode::Silent) => quote! { #matcher.map(|(_, consumed, end_err)| ((), consumed, end_err)) },
+            Some(PatternMode::Peek) => quote! { #matcher.map(|(_, _, end_err)| ((), 0, end_err)) },
             Some(PatternMode::Negative) => quote! {{
                 let result = #matcher;
                 match result {
-                    Ok(_) => Err(super::PegErrorContent::MatchedInNegativePattern.at(offset)),
-                    Err(_) => Ok(((), 0))
+                    Ok((_, consumed, _)) => Err(super::PegErrorContent::MatchedInNegativePattern(&base_input_for_str[(offset - base_offset_for_str)..(offset - base_offset_for_str + consumed)]).at(offset)),
+                    Err(_) => Ok(((), 0, Option::<super::PegError>::None))
                 }
             }},
-            Some(PatternMode::Atomic) => quote! { #matcher.map(|(_, consumed)| {
-                (base_input_for_str[(offset - base_offset_for_str)..(offset - base_offset_for_str + consumed)].to_string(), consumed)
+            Some(PatternMode::Atomic) => quote! { #matcher.map(|(_, consumed, end_err)| {
+                (base_input_for_str[(offset - base_offset_for_str)..(offset - base_offset_for_str + consumed)].to_string(), consumed, end_err)
             }) },
             None => quote! { #matcher }
     };
@@ -94,12 +86,12 @@ pub fn gen_pattern_matcher<'a>(
                 };
 
                 let (init_var, init_set, err_handling) = if rep == PatternRepetition::Any {
-                    (None, None, Some(quote! { Err(_) => break Ok((#ret_val, consumed)) }))
+                    (None, None, Some(quote! { Ok((#ret_val, consumed, Some(err))) }))
                 } else {
                     (
                         Some(quote! { let mut one_success = false; }),
                         Some(quote! { one_success = true; }),
-                        Some(quote! { Err(err) => break if one_success { Ok((#ret_val, consumed)) } else { Err(err) } })
+                        Some(quote! { if one_success { Ok((#ret_val, consumed, Some(err))) } else { Err(err) } })
                     )
                 };
 
@@ -115,7 +107,7 @@ pub fn gen_pattern_matcher<'a>(
                             let result = #matcher;
 
                             match result {
-                                Ok((piece_data, piece_consumed)) => {
+                                Ok((piece_data, piece_consumed, end_err)) => {
                                     #init_set
                                     #push_strategy
                                     consumed += piece_consumed;
@@ -123,7 +115,7 @@ pub fn gen_pattern_matcher<'a>(
                                     input = &input[piece_consumed..];
                                 },
 
-                                #err_handling
+                                Err(err) => break #err_handling
                             }
                         }
                     }
@@ -133,8 +125,8 @@ pub fn gen_pattern_matcher<'a>(
                 {
                     let result = #matcher;
                     match result {
-                        Ok((data, consumed)) => Ok((Some(data), consumed)),
-                        Err(_) => Ok((None, 0))
+                        Ok((data, consumed, end_err)) => Ok((Some(data), consumed, end_err)),
+                        Err(err) => Ok((None, 0, Some(err)))
                     }
                 }
             }
@@ -160,7 +152,7 @@ pub fn gen_pattern_value_matcher<'a>(
 
             quote! {
                 if input.starts_with(#string) {
-                    Ok((#str_type, #str_len))
+                    Ok((#str_type, #str_len, Option::<super::PegError>::None))
                 } else {
                     Err(super::PegErrorContent::ExpectedCstString(#string).at(offset))
                 }
@@ -175,7 +167,7 @@ pub fn gen_pattern_value_matcher<'a>(
                 let ret_data = quote! { #ident (input, offset) };
 
                 if state.recursive_paths[visiting].contains(name) {
-                    quote! { #ret_data.map(|(data, consumed)| (std::rc::Rc::new(data), consumed)) }
+                    quote! { #ret_data.map(|(data, consumed, end_err)| (std::rc::Rc::new(data), consumed, end_err)) }
                 } else {
                     ret_data
                 }
@@ -213,10 +205,14 @@ pub fn gen_pattern_value_matcher<'a>(
                     quote! {
                         let result = #matcher;
 
-                        let (#storage, piece_consumed) = match result {
+                        let (#storage, piece_consumed, end_err) = match result {
                             Ok(result) => result,
                             Err(err) => break Err(err)
                         };
+
+                        if let Some(end_err) = end_err {
+                            last_end_err = Some(end_err);
+                        }
                         
                         offset += piece_consumed;
                         consumed += piece_consumed;
@@ -236,12 +232,13 @@ pub fn gen_pattern_value_matcher<'a>(
                 loop {
                     let mut input = input;
                     let mut offset = offset;
+                    let mut last_end_err = None;
 
                     let mut consumed = 0;
 
                     #(#create_storage)*
 
-                    break Ok((#ret_success_value, consumed));
+                    break Ok((#ret_success_value, consumed, last_end_err));
                 }
             }
         }
@@ -261,11 +258,11 @@ pub fn gen_pattern_value_matcher<'a>(
                             let result = #matcher;
                             
                             match result {
-                                Ok((data, consumed)) => match candidate {
-                                    Some((_, candidate_consumed)) => if consumed > candidate_consumed {
-                                        candidate = Some((super::unions::#union_ident::#union_variant(data), consumed));
+                                Ok((data, consumed, end_err)) => match candidate {
+                                    Some((_, candidate_consumed, _)) => if consumed > candidate_consumed {
+                                        candidate = Some((super::unions::#union_ident::#union_variant(data), consumed, end_err));
                                     },
-                                    None => candidate = Some((super::unions::#union_ident::#union_variant(data), consumed))
+                                    None => candidate = Some((super::unions::#union_ident::#union_variant(data), consumed, end_err))
                                 },
 
                                 Err(err) => errors.push(std::rc::Rc::new(err))
@@ -287,7 +284,7 @@ pub fn gen_pattern_value_matcher<'a>(
 
                     match candidate {
                         None => Err(super::PegErrorContent::NoMatchInUnion(errors).at(offset)),
-                        Some((data, consumed)) => Ok((data, consumed))
+                        Some((data, consumed, end_err)) => Ok((data, consumed, end_err))
                     }
                 }
             }
@@ -332,7 +329,7 @@ pub fn gen_builtin_matcher(name: &str) -> TokenStream {
     quote! {
         match input.chars().next().filter(|nc| #cond) {
             None => Err(super::PegErrorContent::FailedToMatchBuiltinRule(#name).at(offset)),
-            Some(c) => Ok((super::matched::#name_ident { matched: c, at: offset }, 1))
+            Some(c) => Ok((super::matched::#name_ident { matched: c, at: offset }, 1, Option::<super::PegError>::None))
         }
     }
 }

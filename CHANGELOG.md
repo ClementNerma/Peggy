@@ -2,7 +2,7 @@
 
 ## Pre-1.0 versions
 
-### Version 0.6.0 (April 13th, 2021)
+### Version 0.6.x (April 13th, 2021)
 
 * **MAJOR:** Introduce negative (`!`) patterns
 * **MAJOR:** Introduce peek (`~`) patterns
@@ -10,6 +10,9 @@
 * **BREAKING:** Change silent patterns syntax from `_:` to just `°`
 * **BREAKING:** Change atomic patterns syntax from `@:` to just `@`
 * **BREAKING:** Reordered the parser's type into a new `compiler::data` module
+
+* **Minor:** Return correct error from repeated pattern at end of input
+* **Minor:** Return matched content when matching inside a negative pattern
 
 * **Fix:** Character comparisons in generated builtin patterns
 * **Fix:** Some unused rules weren't reported as unused
