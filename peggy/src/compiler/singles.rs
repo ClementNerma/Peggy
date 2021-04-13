@@ -42,7 +42,7 @@ pub fn cst_string(input: &str, base_loc: ParserLoc) -> Result<Option<(&str, usiz
             None,
         ))
     } else {
-        Ok(Some((cst_str, col + 1)))
+        Ok(Some((cst_str, cst_str.len() + 2)))
     }
 }
 

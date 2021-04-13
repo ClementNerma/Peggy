@@ -156,13 +156,7 @@ pub fn parse_peg_nocheck(input: &str) -> Result<PegSyntaxTree, ParserError> {
             Rule {
                 name: rule_name,
                 decl_loc: ParserLoc::new(l, trimmed),
-                pattern: parse_rule_pattern(
-                    line,
-                    ParserLoc {
-                        line: l,
-                        col: start_column,
-                    },
-                )?,
+                pattern: parse_rule_pattern(line, ParserLoc::new(l, start_column))?,
             },
         );
     }
@@ -198,7 +192,7 @@ pub fn parse_peg_nocheck(input: &str) -> Result<PegSyntaxTree, ParserError> {
 /// Parse a rule's content (e.g. `<content>` in `rule = <content>`)
 pub fn parse_rule_pattern(input: &str, base_loc: ParserLoc) -> Result<Pattern, ParserError> {
     // This function is not supposed to be called with an empty content, so we can directly parse the first pattern of the rule
-    let (first_pattern, pattern_len, stopped_at) = parse_sub_pattern(input, base_loc)?;
+    let (first_pattern, pattern_len, stopped_because_of) = parse_sub_pattern(input, base_loc)?;
 
     // Remove the first pattern's content from the remaining input
     let input = &input[pattern_len..];
@@ -206,25 +200,21 @@ pub fn parse_rule_pattern(input: &str, base_loc: ParserLoc) -> Result<Pattern, P
     // Make a global pattern
     // This will contain everything the rule's content is made of
     // The data is built depending on the reason why the pattern parser stopped previously
-    let mut global_pattern = match stopped_at {
+    match stopped_because_of {
         // If the parser stopped because it got to the end of the line, return the pattern as it is
-        PatternParserStoppedAt::End => first_pattern,
+        PatternParserStoppedBecauseOf::End => Ok(first_pattern),
 
         // If the parser stopped because of a continuation separator (whitespace) or an union separator (|),
         // all items of the follow/union should be collected at once
-        PatternParserStoppedAt::ContinuationSep | PatternParserStoppedAt::UnionSep => {
-            parse_pattern_suite_or_union(input, base_loc, first_pattern, pattern_len, stopped_at)?
-        }
-    };
-
-    // Update the base location
-    if global_pattern.loc.line == 0 {
-        global_pattern.loc.col += base_loc.col;
+        PatternParserStoppedBecauseOf::ContinuationSep
+        | PatternParserStoppedBecauseOf::UnionSep => parse_pattern_suite_or_union(
+            input,
+            base_loc,
+            first_pattern,
+            pattern_len,
+            stopped_because_of,
+        ),
     }
-    global_pattern.loc.line += base_loc.line;
-
-    // Success!
-    Ok(global_pattern)
 }
 
 /// Parse a pattern's suite or union
@@ -233,13 +223,12 @@ pub fn parse_pattern_suite_or_union<'a>(
     base_loc: ParserLoc,
     first_pattern: Pattern<'a>,
     first_pattern_consumed: usize,
-    stopped_at: PatternParserStoppedAt,
+    stopped_at: PatternParserStoppedBecauseOf,
 ) -> Result<Pattern<'a>, ParserError> {
-    // Get the first patterns
     // The `patterns` variable contains the parsed patterns
     // The `unions` variable contains each member of the pending union. If the whole rule's content is not an union, this will remain empty.
     // When an union separator is detected, the content of `patterns` is moved to `unions` in order to separate each member of the union.
-    let (mut patterns, mut unions) = if stopped_at == PatternParserStoppedAt::UnionSep {
+    let (mut patterns, mut unions) = if stopped_at == PatternParserStoppedBecauseOf::UnionSep {
         (vec![], vec![create_union_child(vec![first_pattern])])
     } else {
         (vec![first_pattern], vec![])
@@ -253,7 +242,7 @@ pub fn parse_pattern_suite_or_union<'a>(
 
     loop {
         // Parse the next pattern
-        let (next_pattern, next_pattern_len, next_stopped_at) =
+        let (next_pattern, next_pattern_len, next_stopped_because_of) =
             parse_sub_pattern(input, pattern_loc)?;
 
         // Push it to the list of pending patterns
@@ -270,12 +259,12 @@ pub fn parse_pattern_suite_or_union<'a>(
         pattern_loc.add_cols(next_pattern_len + trimmed);
 
         // Check the reason why the parser stopped here
-        match next_stopped_at {
+        match next_stopped_because_of {
             // If it stopped because it was the end of the input, it's time to return the whole collected data
-            PatternParserStoppedAt::End => {
+            PatternParserStoppedBecauseOf::End => {
                 break Ok(Pattern {
                     loc: base_loc,
-                    decl_length: pattern_loc.col - base_loc.col + first_pattern_consumed + 1,
+                    decl_length: pattern_loc.col - base_loc.col + 1,
                     repetition: None,
                     is_silent: false,
                     is_atomic: false,
@@ -283,7 +272,9 @@ pub fn parse_pattern_suite_or_union<'a>(
                     // should be put inside an union.
                     // Otherwise, and if no union separator was found during the parsing on the whole rule's content,
                     // a simple suite can be made from the patterns.
-                    value: if stopped_at != PatternParserStoppedAt::UnionSep && unions.is_empty() {
+                    value: if stopped_at != PatternParserStoppedBecauseOf::UnionSep
+                        && unions.is_empty()
+                    {
                         // Avoid making a whole suite wrapper for a single pattern
                         if patterns.len() == 1 {
                             break Ok(patterns.into_iter().next().unwrap());
@@ -304,10 +295,10 @@ pub fn parse_pattern_suite_or_union<'a>(
             }
 
             // If a continuation separator (whitespace) was encountered, just go to the next pattern (= do nothing for now)
-            PatternParserStoppedAt::ContinuationSep => {}
+            PatternParserStoppedBecauseOf::ContinuationSep => {}
 
             // If an union separator (|) was encountered...
-            PatternParserStoppedAt::UnionSep => {
+            PatternParserStoppedBecauseOf::UnionSep => {
                 // The whole pattern is now considered as an union, given that unions have precedence over everything else
 
                 // Put the current patterns in the union's members list
@@ -325,7 +316,7 @@ pub fn parse_pattern_suite_or_union<'a>(
 pub fn parse_sub_pattern(
     input: &str,
     mut base_loc: ParserLoc,
-) -> Result<(Pattern, usize, PatternParserStoppedAt), ParserError> {
+) -> Result<(Pattern, usize, PatternParserStoppedBecauseOf), ParserError> {
     // Left-trim the input
     let (input, trimmed) = trim_start_and_count(input);
     base_loc.add_cols(trimmed);
@@ -341,72 +332,32 @@ pub fn parse_sub_pattern(
         return Ok((
             first_pattern,
             first_pattern_len + trimmed,
-            PatternParserStoppedAt::End,
+            PatternParserStoppedBecauseOf::End,
         ));
     }
 
-    let mut chars = input.chars();
-
     // Get the first character's following the first piece
-    let next_char = chars.next().unwrap();
+    let (remaining, add_trimmed) = trim_start_and_count(input);
+    let is_union_sep = remaining.starts_with('|');
 
-    // If it's a whitespace...
-    if next_char.is_whitespace() {
-        // It may or may not be followed by an union separator, which can semantically be surrounded by whitespaces
-
-        // The number of characters looked ahead of the end of the first piece
-        let mut looked_ahead = 1;
-
-        // Iterate over remaining characters
-        for c in chars {
-            // Increase the counter
-            looked_ahead += 1;
-
-            // Ignore whitespaces
-            if c.is_whitespace() {
-                continue;
-            }
-            // If we find an union separator (|)...
-            else if c == '|' {
-                // Stop right now.
-                // The parent function will be in charge of parsing the next members of the union.
-                return Ok((
-                    first_pattern,
-                    first_pattern_len + trimmed + looked_ahead,
-                    PatternParserStoppedAt::UnionSep,
-                ));
-            }
-            // If we encounter any other character, it means the first piece was just followed by a whitespace to indicate
-            // it was going to be followed by another piece.
-            else {
-                // Decrease the counter
-                looked_ahead -= 1;
-                break;
-            }
-        }
-
-        // Stop here. The parent function will be in charge of parsing the following items.
+    // If we find an union separator or a whitespace, we can stop here
+    // The parent will be in charge of continuing the processing
+    if is_union_sep || input.chars().next().unwrap().is_whitespace() {
         Ok((
             first_pattern,
-            first_pattern_len + trimmed + looked_ahead,
-            PatternParserStoppedAt::ContinuationSep,
+            trimmed + first_pattern_len + add_trimmed + if is_union_sep { 1 } else { 0 },
+            if is_union_sep {
+                PatternParserStoppedBecauseOf::UnionSep
+            } else {
+                PatternParserStoppedBecauseOf::ContinuationSep
+            },
         ))
     }
-    // If we find an union separator (|)...
-    else if next_char == '|' {
-        // Stop right now.
-        // The parent function will be in charge of parsing the next members of the union.
-        Ok((
-            first_pattern,
-            first_pattern_len + trimmed + 1,
-            PatternParserStoppedAt::UnionSep,
-        ))
-    }
-    // If we find any other character...
+    // Otherwise (if we find an unexpected character)...
     else {
         // That's an error, as the content should not end right now.
         Err(ParserError::new(
-            ParserLoc::new(0, first_pattern_len + trimmed),
+            base_loc.with_add_cols(first_pattern_len),
             1,
             ParserErrorContent::ExpectedPatternSeparatorOrEndOfLine,
             Some("adding another pattern to the suite requires a whitespace, or a vertical bar (|) for an union")
@@ -464,19 +415,19 @@ fn parse_pattern_piece(
     let repetition = input.chars().nth(len).and_then(PatternRepetition::parse);
 
     // Compute the consumed size
-    let consumed = trimmed + trimmed2 + len + if repetition.is_some() { 1 } else { 0 };
+    let decl_length = len + if repetition.is_some() { 1 } else { 0 };
 
     // Success!
     Ok((
         Pattern {
             loc: base_loc,
-            decl_length: consumed,
+            decl_length,
             value,
             is_silent,
             is_atomic,
             repetition,
         },
-        consumed,
+        trimmed + trimmed2 + decl_length,
     ))
 }
 
@@ -523,7 +474,7 @@ fn create_union_child(patterns: Vec<Pattern>) -> Pattern {
 
 /// Reason by the [pattern parser](`parse_rule_pattern`) stopped at a specific moment
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PatternParserStoppedAt {
+pub enum PatternParserStoppedBecauseOf {
     End,
     ContinuationSep,
     UnionSep,

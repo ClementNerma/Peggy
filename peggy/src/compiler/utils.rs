@@ -1,5 +1,3 @@
-use super::parser::ParserLoc;
-
 /// Left-trim an input and get the number of removed characters
 pub fn trim_start_and_count(input: &str) -> (&str, usize) {
     let trimmed = count_start_whitespaces(input);
@@ -57,6 +55,8 @@ pub static BUILTIN_RULES: &[&str] = &[
     "B_ASCII_PUNCTUATION",
     "B_ASCII_UPPERCASE",
     "B_ASCII_WHITESPACE",
+    "B_ALPHABETIC",
+    "B_ALPHANUMERIC",
     "B_CONTROL",
     "B_LOWERCASE",
     "B_NUMERIC",

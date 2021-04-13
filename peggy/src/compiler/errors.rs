@@ -106,7 +106,7 @@ impl fmt::Display for ParserErrorContent {
                 started_at.col() + 1
             ),
             Self::ExpectedPatternSeparatorOrEndOfLine => {
-                write!(f, "Expected rule separator or end of line")
+                write!(f, "Expected pattern separator or end of line")
             }
             Self::ExpectedFollowContinuation => write!(
                 f,

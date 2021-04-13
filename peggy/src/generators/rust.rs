@@ -742,7 +742,7 @@ pub fn gen_rust_rule_pattern_value_matcher<'a>(
 
 pub fn gen_builtin_matcher(name: &str) -> TokenStream {
     let cond = match name {
-        "B_ANY" => quote! { nc.is_some() },
+        "B_ANY" => quote! { true },
 
         "B_NEWLINE_CR" => quote! { nc == '\r' },
         "B_NEWLINE_LF" => quote! { nc == '\n' },
@@ -761,6 +761,8 @@ pub fn gen_builtin_matcher(name: &str) -> TokenStream {
         "B_ASCII_UPPERCASE" => quote! { nc.is_ascii_uppercase() },
         "B_ASCII_WHITESPACE" => quote! { nc.is_ascii_whitespace() },
 
+        "B_ALPHABETIC" => quote! { nc.is_alphabetic() },
+        "B_ALPHANUMERIC" => quote! { nc.is_alphanumeric() },
         "B_CONTROL" => quote! { nc.is_control() },
         "B_LOWERCASE" => quote! { nc.is_lowercase() },
         "B_NUMERIC" => quote! { nc.is_numeric() },
