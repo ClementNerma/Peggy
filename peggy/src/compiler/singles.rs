@@ -3,7 +3,7 @@ use super::parser::{parse_rule_pattern, ParserLoc, Pattern, PatternRepetition};
 use std::rc::Rc;
 
 /// Try to match a constant string pattern
-pub fn cst_string(input: &str) -> Result<Option<(&str, usize)>, ParserError> {
+pub fn cst_string(input: &str, base_loc: ParserLoc) -> Result<Option<(&str, usize)>, ParserError> {
     let mut chars = input.chars();
 
     match chars.next() {
@@ -18,10 +18,10 @@ pub fn cst_string(input: &str) -> Result<Option<(&str, usize)>, ParserError> {
 
         let c = chars.next().ok_or_else(|| {
             ParserError::new(
-                ParserLoc::new(0, col),
+                base_loc.with_add_cols(col),
                 0,
                 ParserErrorContent::UnterminatedCstString {
-                    started_at: ParserLoc::new(0, 0),
+                    started_at: base_loc,
                 },
                 Some("you may need to add a closing quote '\"'"),
             )
@@ -36,7 +36,7 @@ pub fn cst_string(input: &str) -> Result<Option<(&str, usize)>, ParserError> {
 
     if cst_str.is_empty() {
         Err(ParserError::new(
-            ParserLoc::new(0, 0),
+            base_loc,
             2,
             ParserErrorContent::EmptyConstantString,
             None,
@@ -47,7 +47,7 @@ pub fn cst_string(input: &str) -> Result<Option<(&str, usize)>, ParserError> {
 }
 
 /// Try to match a rule's name
-pub fn rule_name(input: &str) -> Result<Option<(&str, usize)>, ParserError> {
+pub fn rule_name(input: &str, base_loc: ParserLoc) -> Result<Option<(&str, usize)>, ParserError> {
     let mut chars = input.chars();
 
     match chars.next() {
@@ -64,7 +64,7 @@ pub fn rule_name(input: &str) -> Result<Option<(&str, usize)>, ParserError> {
 
         if !c.is_alphanumeric() && c != '_' {
             return Err(ParserError::new(
-                ParserLoc::new(0, name_len),
+                base_loc.with_add_cols(name_len),
                 1,
                 ParserErrorContent::IllegalSymbol(c),
                 Some("check if you have spelled the rule's name correctly"),
@@ -78,7 +78,10 @@ pub fn rule_name(input: &str) -> Result<Option<(&str, usize)>, ParserError> {
 }
 
 /// Try to match a group
-pub fn group(input: &str) -> Result<Option<(Rc<Pattern>, usize)>, ParserError> {
+pub fn group(
+    input: &str,
+    base_loc: ParserLoc,
+) -> Result<Option<(Rc<Pattern>, usize)>, ParserError> {
     let mut chars = input.chars();
 
     let mut opened_string = false;
@@ -95,10 +98,10 @@ pub fn group(input: &str) -> Result<Option<(Rc<Pattern>, usize)>, ParserError> {
 
         let next_c = chars.next().ok_or_else(|| {
             ParserError::new(
-                ParserLoc::new(0, group_length),
+                base_loc.with_add_cols(group_length),
                 0,
                 ParserErrorContent::UnclosedGroup {
-                    started_at: ParserLoc::new(0, 0),
+                    started_at: base_loc,
                 },
                 Some("you may need to add a closing parenthesis ')'"),
             )
@@ -126,7 +129,7 @@ pub fn group(input: &str) -> Result<Option<(Rc<Pattern>, usize)>, ParserError> {
     Ok(Some((
         Rc::new(parse_rule_pattern(
             &input[1..group_length - 1],
-            ParserLoc::new(0, 1),
+            base_loc.with_add_cols(1),
         )?),
         group_length,
     )))

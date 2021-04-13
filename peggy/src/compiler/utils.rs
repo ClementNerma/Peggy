@@ -20,32 +20,6 @@ pub fn is_finished_line(line: &str) -> bool {
     trimmed.is_empty() || trimmed.starts_with('#')
 }
 
-/// Add a base location to a parser location
-pub fn add_parser_loc(base_line: usize, base_col: usize, target_loc: ParserLoc) -> ParserLoc {
-    ParserLoc::new(
-        base_line + target_loc.line(),
-        if target_loc.line() == 0 {
-            base_col + target_loc.col()
-        } else {
-            // Don't add the base column after the first line
-            target_loc.col()
-        },
-    )
-}
-
-// Substract a base location from a parser location
-pub fn sub_parser_loc(base_line: usize, base_col: usize, target_loc: ParserLoc) -> ParserLoc {
-    ParserLoc::new(
-        target_loc.line() - base_line,
-        if target_loc.line() == 0 {
-            target_loc.col() - base_col
-        } else {
-            // Don't substract the base column after the first line
-            target_loc.col()
-        },
-    )
-}
-
 /// Check if a rule's name refers to a builtin one
 pub fn is_builtin_rule_name(name: &str) -> bool {
     name.starts_with("B_")

@@ -1,4 +1,4 @@
-use super::errors::{add_base_err_loc, ParserError, ParserErrorContent};
+use super::errors::{ParserError, ParserErrorContent};
 use super::singles;
 use super::utils::*;
 use super::validator::validate_parsed_peg;
@@ -198,8 +198,7 @@ pub fn parse_peg_nocheck(input: &str) -> Result<PegSyntaxTree, ParserError> {
 /// Parse a rule's content (e.g. `<content>` in `rule = <content>`)
 pub fn parse_rule_pattern(input: &str, base_loc: ParserLoc) -> Result<Pattern, ParserError> {
     // This function is not supposed to be called with an empty content, so we can directly parse the first pattern of the rule
-    let (first_pattern, pattern_len, stopped_at) = parse_sub_pattern(input)
-        .map_err(|err| add_base_err_loc(base_loc.line, base_loc.col, err))?;
+    let (first_pattern, pattern_len, stopped_at) = parse_sub_pattern(input, base_loc)?;
 
     // Remove the first pattern's content from the remaining input
     let input = &input[pattern_len..];
@@ -214,15 +213,15 @@ pub fn parse_rule_pattern(input: &str, base_loc: ParserLoc) -> Result<Pattern, P
         // If the parser stopped because of a continuation separator (whitespace) or an union separator (|),
         // all items of the follow/union should be collected at once
         PatternParserStoppedAt::ContinuationSep | PatternParserStoppedAt::UnionSep => {
-            parse_pattern_suite_or_union(input, base_loc, pattern_len, first_pattern, stopped_at)?
+            parse_pattern_suite_or_union(input, base_loc, first_pattern, pattern_len, stopped_at)?
         }
     };
 
     // Update the base location
-    if global_pattern.relative_loc.line == 0 {
-        global_pattern.relative_loc.col += base_loc.col;
+    if global_pattern.loc.line == 0 {
+        global_pattern.loc.col += base_loc.col;
     }
-    global_pattern.relative_loc.line += base_loc.line;
+    global_pattern.loc.line += base_loc.line;
 
     // Success!
     Ok(global_pattern)
@@ -232,8 +231,8 @@ pub fn parse_rule_pattern(input: &str, base_loc: ParserLoc) -> Result<Pattern, P
 pub fn parse_pattern_suite_or_union<'a>(
     input: &'a str,
     base_loc: ParserLoc,
-    mut column: usize,
     first_pattern: Pattern<'a>,
+    first_pattern_consumed: usize,
     stopped_at: PatternParserStoppedAt,
 ) -> Result<Pattern<'a>, ParserError> {
     // Get the first patterns
@@ -249,16 +248,16 @@ pub fn parse_pattern_suite_or_union<'a>(
     // Local modifyable input
     let mut input = input;
 
+    // Local modifyable location
+    let mut pattern_loc = base_loc.with_add_cols(first_pattern_consumed);
+
     loop {
         // Parse the next pattern
-        let (next_pattern, next_pattern_len, next_stopped_at) = parse_sub_pattern(input)
-            .map_err(|err| add_base_err_loc(base_loc.line, base_loc.col + column, err))?;
+        let (next_pattern, next_pattern_len, next_stopped_at) =
+            parse_sub_pattern(input, pattern_loc)?;
 
         // Push it to the list of pending patterns
-        patterns.push(Pattern {
-            relative_loc: add_parser_loc(0, column, next_pattern.relative_loc),
-            ..next_pattern
-        });
+        patterns.push(next_pattern);
 
         // Remove it from the remaining input
         input = &input[next_pattern_len..];
@@ -268,15 +267,15 @@ pub fn parse_pattern_suite_or_union<'a>(
         input = &input[trimmed..];
 
         // Update the column number
-        column += next_pattern_len + trimmed;
+        pattern_loc.add_cols(next_pattern_len + trimmed);
 
         // Check the reason why the parser stopped here
         match next_stopped_at {
             // If it stopped because it was the end of the input, it's time to return the whole collected data
             PatternParserStoppedAt::End => {
                 break Ok(Pattern {
-                    relative_loc: ParserLoc { line: 0, col: 0 },
-                    decl_length: column + 1,
+                    loc: base_loc,
+                    decl_length: pattern_loc.col - base_loc.col + first_pattern_consumed + 1,
                     repetition: None,
                     is_silent: false,
                     is_atomic: false,
@@ -325,16 +324,14 @@ pub fn parse_pattern_suite_or_union<'a>(
 /// The success return value is made of the parsed pattern, the consumed input length, and the reason why the parser stopped at this specific symbol
 pub fn parse_sub_pattern(
     input: &str,
+    mut base_loc: ParserLoc,
 ) -> Result<(Pattern, usize, PatternParserStoppedAt), ParserError> {
     // Left-trim the input
     let (input, trimmed) = trim_start_and_count(input);
+    base_loc.add_cols(trimmed);
 
     // Parse the first piece (note that the entire pattern may be made of a single one)
-    let (mut first_pattern, first_pattern_len) =
-        parse_pattern_piece(input).map_err(|err| add_base_err_loc(0, trimmed, err))?;
-
-    // Update location
-    first_pattern.relative_loc = add_parser_loc(0, trimmed, first_pattern.relative_loc);
+    let (first_pattern, first_pattern_len) = parse_pattern_piece(input, base_loc)?;
 
     // Remove it from the remaining input
     let input = &input[first_pattern_len..];
@@ -420,7 +417,10 @@ pub fn parse_sub_pattern(
 /// Parse a rule's piece, which means a single value
 ///
 /// This function's success return value is the parsed piece and the consumed input length
-fn parse_pattern_piece(input: &str) -> Result<(Pattern, usize), ParserError> {
+fn parse_pattern_piece(
+    input: &str,
+    mut base_loc: ParserLoc,
+) -> Result<(Pattern, usize), ParserError> {
     // Determine if the piece is silent
     let (trimmed, is_silent) = parse_rule_pattern_silence(input);
 
@@ -430,23 +430,26 @@ fn parse_pattern_piece(input: &str) -> Result<(Pattern, usize), ParserError> {
     // Update the input
     let input = &input[trimmed + trimmed2..];
 
+    // Update the base location
+    base_loc.add_cols(trimmed + trimmed2);
+
     let (value, len) =
     // Check if the value is a constant string
-    if let Some((string, len)) = singles::cst_string(input)? {
+    if let Some((string, len)) = singles::cst_string(input, base_loc)? {
         (RulePatternValue::CstString(string), len)
     }
     // Check if the value is a rule's name
-    else if let Some((name, len)) = singles::rule_name(input)? {
+    else if let Some((name, len)) = singles::rule_name(input, base_loc)? {
         (RulePatternValue::Rule(name), len)
     }
     // Check if the value is a group (`(...)`)
-    else if let Some((group, len)) = singles::group(input)? {
+    else if let Some((group, len)) = singles::group(input, base_loc)? {
         (RulePatternValue::Group(group), len)
     }
     // If it's none of the above, it is syntax error
     else {
         return Err(ParserError::new(
-            ParserLoc::new(0, 0),
+            base_loc,
             0,
             ParserErrorContent::ExpectedPattern,
             Some(match input.chars().next() {
@@ -466,7 +469,7 @@ fn parse_pattern_piece(input: &str) -> Result<(Pattern, usize), ParserError> {
     // Success!
     Ok((
         Pattern {
-            relative_loc: ParserLoc { line: 0, col: 0 },
+            loc: base_loc,
             decl_length: consumed,
             value,
             is_silent,
@@ -500,21 +503,15 @@ pub fn parse_rule_pattern_atomicity(input: &str) -> (usize, bool) {
 }
 
 // Create an union child (see usage)
-fn create_union_child(mut patterns: Vec<Pattern>) -> Pattern {
+fn create_union_child(patterns: Vec<Pattern>) -> Pattern {
     assert_ne!(patterns.len(), 0);
 
     if patterns.len() == 1 {
         // Avoid making a `RulePatternValue::Suite` wrapper for a single pattern
         patterns.into_iter().next().unwrap()
     } else {
-        let ParserLoc { line, col } = patterns[0].relative_loc;
-
-        for pattern in patterns.iter_mut() {
-            pattern.relative_loc = sub_parser_loc(line, col, pattern.relative_loc);
-        }
-
         Pattern {
-            relative_loc: patterns[0].relative_loc,
+            loc: patterns[0].loc,
             decl_length: patterns.iter().fold(0, |acc, pat| acc + pat.decl_length),
             repetition: None,
             is_silent: false,
@@ -581,7 +578,7 @@ impl<'a> Rule<'a> {
 #[derive(Debug)]
 pub struct Pattern<'a> {
     /// Pattern's beginning, relative to its parent
-    relative_loc: ParserLoc,
+    loc: ParserLoc,
 
     /// Length of the pattern
     decl_length: usize,
@@ -601,8 +598,8 @@ pub struct Pattern<'a> {
 
 impl<'a> Pattern<'a> {
     /// Get the pattern's beginning, relatively to its parent
-    pub fn relative_loc(&self) -> ParserLoc {
-        self.relative_loc
+    pub fn loc(&self) -> ParserLoc {
+        self.loc
     }
 
     /// Get the length of the pattern, which is the size of its declaration in the input grammar
@@ -714,5 +711,16 @@ impl ParserLoc {
     /// Get the location's column number
     pub fn col(&self) -> usize {
         self.col
+    }
+
+    pub(super) fn add_cols(&mut self, cols: usize) {
+        self.col += cols;
+    }
+
+    pub(super) fn with_add_cols(&self, cols: usize) -> Self {
+        Self {
+            line: self.line,
+            col: self.col + cols,
+        }
     }
 }

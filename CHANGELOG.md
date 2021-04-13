@@ -2,6 +2,10 @@
 
 ## Pre-1.0 versions
 
+### Version 0.5.3 (April 13th, 2021)
+
+* **BREAKING:** Store absolute position instead of relative in patterns
+
 ### Version 0.5.2 (April 13th, 2021)
 
 * **BREAKING:** Rename error variants

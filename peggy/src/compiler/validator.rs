@@ -13,14 +13,9 @@ pub fn validate_parsed_peg(pst: &PegSyntaxTree) -> Result<(), ParserError> {
 
     // Validate each rule one by one
     for rule in pst.rules().values() {
-        validate_pattern_recursive(
-            pst,
-            rule.pattern().relative_loc(),
-            rule.pattern(),
-            &mut used,
-        )?;
+        validate_pattern_recursive(pst, rule.pattern(), &mut used)?;
 
-        check_potentially_empty_union_members(pst, rule.pattern().relative_loc(), rule.pattern())?;
+        check_potentially_empty_union_members(pst, rule.pattern().loc(), rule.pattern())?;
     }
 
     for (name, rule) in pst.rules() {
@@ -35,7 +30,6 @@ pub fn validate_parsed_peg(pst: &PegSyntaxTree) -> Result<(), ParserError> {
 /// Validate a [`RulePattern`] recursively
 fn validate_pattern_recursive<'a>(
     pst: &'a PegSyntaxTree,
-    loc: ParserLoc,
     pattern: &'a Pattern,
     used: &mut HashSet<&'a str>,
 ) -> Result<(), ParserError> {
@@ -54,7 +48,7 @@ fn validate_pattern_recursive<'a>(
                 Ok(())
             } else {
                 Err(ParserError::new(
-                    add_parser_loc(loc.line(), loc.col(), pattern.relative_loc()),
+                    pattern.loc(),
                     name.len(),
                     if is_builtin_rule_name(name) {
                         ParserErrorContent::UnknownBuiltinRule
@@ -67,22 +61,12 @@ fn validate_pattern_recursive<'a>(
         }
 
         // Develop groups
-        RulePatternValue::Group(pattern) => validate_pattern_recursive(
-            pst,
-            add_parser_loc(loc.line(), loc.col(), pattern.relative_loc()),
-            pattern,
-            used,
-        ),
+        RulePatternValue::Group(pattern) => validate_pattern_recursive(pst, pattern, used),
 
         // Develop suites and unions
         RulePatternValue::Suite(patterns) | RulePatternValue::Union(patterns) => {
             for pattern in patterns {
-                validate_pattern_recursive(
-                    pst,
-                    add_parser_loc(loc.line(), loc.col(), pattern.relative_loc()),
-                    pattern,
-                    used,
-                )?;
+                validate_pattern_recursive(pst, pattern, used)?;
             }
 
             Ok(())
@@ -115,20 +99,15 @@ fn check_potentially_empty_union_members<'a>(
         }
 
         // Develop groups
-        RulePatternValue::Group(pattern) => check_potentially_empty_union_members(
-            pst,
-            add_parser_loc(loc.line(), loc.col(), pattern.relative_loc()),
-            pattern,
-        ),
+        RulePatternValue::Group(pattern) => {
+            check_potentially_empty_union_members(pst, pattern.loc(), pattern)
+        }
 
         // Develop suites and unions
         RulePatternValue::Suite(patterns) => {
             for pattern in patterns {
-                let is_potentially_empty = check_potentially_empty_union_members(
-                    pst,
-                    add_parser_loc(loc.line(), loc.col(), pattern.relative_loc()),
-                    pattern,
-                )?;
+                let is_potentially_empty =
+                    check_potentially_empty_union_members(pst, pattern.loc(), pattern)?;
 
                 if !is_potentially_empty {
                     return Ok(false);
@@ -140,15 +119,12 @@ fn check_potentially_empty_union_members<'a>(
 
         RulePatternValue::Union(patterns) => {
             for pattern in patterns {
-                let is_potentially_empty = check_potentially_empty_union_members(
-                    pst,
-                    add_parser_loc(loc.line(), loc.col(), pattern.relative_loc()),
-                    pattern,
-                )?;
+                let is_potentially_empty =
+                    check_potentially_empty_union_members(pst, pattern.loc(), pattern)?;
 
                 if is_potentially_empty {
                     return Err(ParserError::new(
-                        add_parser_loc(loc.line(), loc.col(), pattern.relative_loc()),
+                        pattern.loc(),
                         pattern.decl_length(),
                         ParserErrorContent::PotentiallyEmptyUnionMember,
                         Some("empty union members lead to infinite loops, please ensure no member uses a '?' or '*' repetition"),

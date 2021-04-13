@@ -1,43 +1,6 @@
 use super::parser::ParserLoc;
-use super::utils::{add_parser_loc, BUILTIN_RULES};
+use super::utils::BUILTIN_RULES;
 use std::fmt;
-
-/// Add base location to an error instance.
-///
-/// If the error's content contains a location value, it will be updated as well.
-pub fn add_base_err_loc(base_line: usize, base_col: usize, err: ParserError) -> ParserError {
-    ParserError {
-        loc: add_parser_loc(base_line, base_col, err.loc),
-        length: err.length,
-        content: match err.content {
-            ParserErrorContent::UnclosedGroup { started_at } => ParserErrorContent::UnclosedGroup {
-                started_at: add_parser_loc(base_line, base_col, started_at),
-            },
-            ParserErrorContent::UnterminatedCstString { started_at } => {
-                ParserErrorContent::UnterminatedCstString {
-                    started_at: add_parser_loc(base_line, base_col, started_at),
-                }
-            }
-            ParserErrorContent::ExpectedRuleAssignmentOp
-            | ParserErrorContent::ExpectedPattern
-            | ParserErrorContent::ExpectedRuleDeclaration
-            | ParserErrorContent::ExpectedPatternSeparatorOrEndOfLine
-            | ParserErrorContent::ExpectedFollowContinuation
-            | ParserErrorContent::ExpectedUnionContinuation
-            | ParserErrorContent::ReservedUppercaseRuleName
-            | ParserErrorContent::DuplicateRuleName
-            | ParserErrorContent::MissingMainRule
-            | ParserErrorContent::UnknownRule
-            | ParserErrorContent::UnknownBuiltinRule
-            | ParserErrorContent::UnusedRule
-            | ParserErrorContent::EmptyConstantString
-            | ParserErrorContent::PotentiallyEmptyUnionMember
-            | ParserErrorContent::UnterminatedMultiLineComment { started_at: _ } // As this one is global, it does not adaptation
-            | ParserErrorContent::IllegalSymbol(_) => err.content,
-        },
-        tip: err.tip,
-    }
-}
 
 /// Global parsing error
 #[derive(Debug)]
