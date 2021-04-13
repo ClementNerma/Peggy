@@ -49,6 +49,9 @@ pub enum MatchedData<'a> {
     /// Matched a silent pattern
     SilentPattern,
 
+    /// Matched a negative pattern
+    NegativePattern,
+
     /// Matched a builtin rule
     BuiltinRule { name: &'a str, symbol: Option<char> },
 

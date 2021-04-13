@@ -1,5 +1,6 @@
+use super::data::{ParserLoc, Pattern, PatternRepetition};
 use super::errors::{ParserError, ParserErrorContent};
-use super::parser::{parse_rule_pattern, ParserLoc, Pattern, PatternRepetition};
+use super::parser::parse_rule_pattern;
 use std::rc::Rc;
 
 /// Try to match a constant string pattern
@@ -11,11 +12,9 @@ pub fn cst_string(input: &str, base_loc: ParserLoc) -> Result<Option<(&str, usiz
         Some(_) | None => return Ok(None),
     }
 
-    let mut col = 0;
+    let mut col = 1;
 
     loop {
-        col += 1;
-
         let c = chars.next().ok_or_else(|| {
             ParserError::new(
                 base_loc.with_add_cols(col),
@@ -30,6 +29,8 @@ pub fn cst_string(input: &str, base_loc: ParserLoc) -> Result<Option<(&str, usiz
         if c == '"' {
             break;
         }
+
+        col += c.len_utf8();
     }
 
     let cst_str = &input[1..col];
@@ -51,7 +52,7 @@ pub fn rule_name(input: &str, base_loc: ParserLoc) -> Result<Option<(&str, usize
     let mut chars = input.chars();
 
     match chars.next() {
-        Some(c) if c.is_alphabetic() || c == '_' => {}
+        Some(c) if c.is_alphabetic() => {}
         Some(_) | None => return Ok(None),
     }
 
@@ -64,14 +65,14 @@ pub fn rule_name(input: &str, base_loc: ParserLoc) -> Result<Option<(&str, usize
 
         if !c.is_alphanumeric() && c != '_' {
             return Err(ParserError::new(
-                base_loc.with_add_cols(name_len),
+                base_loc.with_add_cols(name_len - 1),
                 1,
                 ParserErrorContent::IllegalSymbol(c),
                 Some("check if you have spelled the rule's name correctly"),
             ));
         }
 
-        name_len += 1;
+        name_len += c.len_utf8();
     }
 
     Ok(Some((&input[0..=name_len - 1], name_len)))
@@ -85,7 +86,7 @@ pub fn group(
     let mut chars = input.chars();
 
     let mut opened_string = false;
-    let mut stacked_groups: u32 = 0;
+    let mut inner_groups: u32 = 0;
     let mut group_length = 1;
 
     match chars.next() {
@@ -94,8 +95,6 @@ pub fn group(
     }
 
     loop {
-        group_length += 1;
-
         let next_c = chars.next().ok_or_else(|| {
             ParserError::new(
                 base_loc.with_add_cols(group_length),
@@ -107,6 +106,8 @@ pub fn group(
             )
         })?;
 
+        group_length += next_c.len_utf8();
+
         if opened_string {
             if next_c == '"' {
                 opened_string = false;
@@ -116,13 +117,13 @@ pub fn group(
         }
 
         if next_c == '(' {
-            stacked_groups += 1;
+            inner_groups += 1;
         } else if next_c == ')' {
-            if stacked_groups == 0 {
+            if inner_groups == 0 {
                 break;
             }
 
-            stacked_groups -= 1;
+            inner_groups -= 1;
         }
     }
 

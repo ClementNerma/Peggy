@@ -52,9 +52,9 @@ pub fn match_pattern<'a, 'b: 'a>(
     };
 
     // The matching method depends on the repetition model (see [`crate::compiler::RuleRepetition`])
-    let (data, consumed) = match pattern.repetition() {
+    let result = match pattern.repetition() {
         // If there is no rule, match and fail in case of error
-        None => try_match(input, cursor),
+        None => try_match(input, cursor.clone()),
 
         // Otherwise...
         Some(rep) => match rep {
@@ -107,7 +107,7 @@ pub fn match_pattern<'a, 'b: 'a>(
             }
 
             // For optional matching, succeed in any case (except for ' errors)
-            PatternRepetition::Optional => Ok(match try_match(input, cursor) {
+            PatternRepetition::Optional => Ok(match try_match(input, cursor.clone()) {
                 Ok((data, len)) => (
                     if pattern.is_silent() {
                         None
@@ -132,16 +132,29 @@ pub fn match_pattern<'a, 'b: 'a>(
                 ),
             }),
         },
-    }?;
+    };
 
-    Ok((
-        if pattern.is_atomic() {
-            data.map(|_| MatchedData::AtomicPattern(&input[..consumed]))
-        } else {
-            data
-        },
-        consumed,
-    ))
+    if pattern.is_negative() {
+        match result {
+            Ok(_) => Err(RuntimeError::new(
+                ctx.subject,
+                Some(cursor),
+                RuntimeErrorContent::MatchedInnerNegativePattern,
+            )),
+            Err(_) => Ok((Some(MatchedData::NegativePattern), 0)),
+        }
+    } else {
+        let (data, consumed) = result?;
+
+        Ok((
+            if pattern.is_atomic() {
+                data.map(|_| MatchedData::AtomicPattern(&input[..consumed]))
+            } else {
+                data
+            },
+            consumed,
+        ))
+    }
 }
 
 /// Match the given input against a single [`RulePatternValue`]

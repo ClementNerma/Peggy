@@ -125,11 +125,14 @@ Patterns can be decorated with a _repetition model_ (no whitespace must be prese
 * `*`: match this pattern as much as possible, zero matching is allowed
 * `?`: match this pattern one time if possible, zero matching is allowed
 
-Patterns can also be made _silent_ to avoid capturing anything, by prefixing them with `_:` (no space allowed).
+Patterns can also be set a _mode_ by prefixing them with a character (no space allowed):
 
-There are also _atomic patterns_, whose content is provided as a single string when matching. They are prefixed with `@:` (no space allowed).
+* `°`: silent pattern - will not capture anything
+* `~`: peek patterns - does not capture or consume anything
+* `!`: negative pattern - will match only if the inner pattern doesn't ; does not capture or consume anything
+* `@`: atomic patterns - will be returned as a single string if matching
 
-Please note that, unlike any other feature, atomic patterns will require to allocate the matched string. This shouldn't be a problem as atomics are designed to handle very small strings, but keep that in mind.
+Please note that, unlike any other feature, atomic patterns will require the generated program to allocate the matched string. This shouldn't be a problem as atomics are designed to handle very small strings, but keep that in mind.
 
 ## Builtin rules
 

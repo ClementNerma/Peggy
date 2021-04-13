@@ -2,14 +2,22 @@
 
 ## Pre-1.0 versions
 
-### Version 0.5.5 (April 13th, 2021)
+### Version 0.6.0 (April 13th, 2021)
 
+* **MAJOR:** Introduce negative (`!`) patterns
+* **MAJOR:** Introduce peek (`~`) patterns
 
+* **BREAKING:** Change silent patterns syntax from `_:` to just `°`
+* **BREAKING:** Change atomic patterns syntax from `@:` to just `@`
+* **BREAKING:** Reordered the parser's type into a new `compiler::data` module
 
-
-
+* **Fix:** Character comparisons in generated builtin patterns
+* **Fix:** Some unused rules weren't reported as unused
+* **Fix:** Correctly handle all Unicode characters
 
 ### Version 0.5.x (April 13th, 2021)
+
+* **MAJOR:** Introduce atomic patterns
 
 * **BREAKING:** Forbid empty strings in patterns
 * **BREAKING:** Forbid potentially-empty union members (which would lead to infinite loops)
@@ -18,8 +26,6 @@
 
 * **QoF:** Improve some error messages
 * **QoF:** Speed up validation of union members
-
-* **MAJOR:** Introduce atomic rules
 
 * **Minor:** Add length in patterns
 * **Minor:** Added `B_ALPHABETIC` and `B_ALPHANUMERIC` builtin rules
@@ -47,9 +53,9 @@
 
 ### Version 0.2.x (April 12th, 2021)
 
-* **BREAKING:** Remove unstable builtin patterns `B_EOI`, `B_TRUE` and `B_FALSE`
+* **MAJOR:** Introduce silent patterns
 
-* **MAJOR:** Add support for silent patterns (`_:`)
+* **BREAKING:** Remove unstable builtin patterns `B_EOI`, `B_TRUE` and `B_FALSE`
 
 * **Minor:** Make the `GRAMMAR_ENTRYPOINT_PATTERN` constant public
 * **Minor:** Change visibility of generators

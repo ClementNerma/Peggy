@@ -1,6 +1,6 @@
 [package]
 name = "peggy_derive"
-version = "0.3.0"
+version = "0.6.0"
 authors = ["Clément Nerma <clement.nerma@gmail.com>"]
 edition = "2018"
 

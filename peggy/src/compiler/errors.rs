@@ -1,4 +1,4 @@
-use super::parser::ParserLoc;
+use super::data::ParserLoc;
 use super::utils::BUILTIN_RULES;
 use std::fmt;
 
@@ -68,7 +68,7 @@ pub enum ParserErrorContent {
     DuplicateRuleName,
     ExpectedPattern,
     UnclosedGroup { started_at: ParserLoc },
-    ExpectedPatternSeparatorOrEndOfLine,
+    ExpectedPatternSeparatorOrEndOfLine(char),
     ExpectedFollowContinuation,
     ExpectedUnionContinuation,
     UnterminatedCstString { started_at: ParserLoc },
@@ -105,8 +105,8 @@ impl fmt::Display for ParserErrorContent {
                 started_at.line() + 1,
                 started_at.col() + 1
             ),
-            Self::ExpectedPatternSeparatorOrEndOfLine => {
-                write!(f, "Expected pattern separator or end of line")
+            Self::ExpectedPatternSeparatorOrEndOfLine(c) => {
+                write!(f, "Expected pattern separator or end of line, but found character [{}] instead", c)
             }
             Self::ExpectedFollowContinuation => write!(
                 f,

@@ -132,6 +132,9 @@ pub enum RuntimeErrorContent<'a> {
     /// Did not match any of the member of an union
     NoMatchInUnion(Vec<RuntimeError<'a>>),
 
+    /// Matched in a negative pattern
+    MatchedInnerNegativePattern,
+
     /// Remaining content was found after the end of the grammar
     UnexpectedContent,
 
@@ -181,6 +184,9 @@ impl<'a> RuntimeErrorContent<'a> {
                     .collect::<Vec<_>>()
                     .join("\n\n")
             ),
+            Self::MatchedInnerNegativePattern => {
+                "Matched the inner pattern of a negative pattern".to_string()
+            }
             Self::UnexpectedContent => {
                 "End of content was expected, found additional symbol".to_string()
             }
@@ -217,6 +223,9 @@ pub enum RuntimeTreeItem<'a> {
 
     /// Nth member of an union group (| -separated patterns)
     UnionMember(usize),
+
+    /// Negative pattern
+    NegativePattern,
 }
 
 impl<'a> fmt::Display for RuntimeTreeItem<'a> {
@@ -226,6 +235,7 @@ impl<'a> fmt::Display for RuntimeTreeItem<'a> {
             Self::Group => write!(f, "Group"),
             Self::FollowedMember(i) => write!(f, "Consecutive pattern {}", i + 1),
             Self::UnionMember(i) => write!(f, "Union member {}", i + 1),
+            Self::NegativePattern => write!(f, "Negative pattern"),
         }
     }
 }

@@ -2,7 +2,13 @@ use super::errors::ParserError;
 
 /// Format in a human-readable way a compilation error
 pub fn pretty_format_parser_err(input: &str, err: ParserError) -> String {
-    let padding = " ".repeat(err.col() + (err.line() + 1).to_string().len() + 3);
+    let line = if err.line() < input.lines().count() {
+        input.lines().nth(err.line()).unwrap()
+    } else {
+        ""
+    };
+    let padding =
+        " ".repeat(line[..err.col()].chars().count() + (err.line() + 1).to_string().len() + 3);
     let tip = err.tip().map(|tip| format!("\n{}Tip: {}", padding, tip));
 
     format!(
@@ -10,11 +16,7 @@ pub fn pretty_format_parser_err(input: &str, err: ParserError) -> String {
         err.line() + 1,
         err.col() + 1,
         err.line() + 1,
-        if err.line() < input.lines().count() {
-            input.lines().nth(err.line()).unwrap()
-        } else {
-            ""
-        },
+        line,
         padding,
         "^".repeat(if err.length() == 0 { 1 } else { err.length() }),
         format!("{}", err.content())

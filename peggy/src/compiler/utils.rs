@@ -6,7 +6,10 @@ pub fn trim_start_and_count(input: &str) -> (&str, usize) {
 
 /// Count start whitespaces
 pub fn count_start_whitespaces(input: &str) -> usize {
-    input.chars().take_while(|c| c.is_whitespace()).count()
+    input
+        .chars()
+        .take_while(|c| c.is_whitespace())
+        .fold(0, |acc, c| acc + c.len_utf8())
 }
 
 /// Check if a line is finished, which requires one the following conditions:

@@ -13,22 +13,31 @@ use std::path::PathBuf;
 use syn::{Ident, ItemMod, Visibility};
 
 lazy_static! {
-    static ref FILENAME_ATTR: Regex = Regex::new("^filename\\s*=\\s*\"(.*)\"$").unwrap();
+    static ref ATTR_CONTENT: Regex = Regex::new(
+        "^filename\\s*=\\s*\"(?P<filename>[^\"]+)\"(?:,\\s*(debugger\\s*=\\s*\"(?P<debugger>[^\"]+)\"))?$"
+    ).unwrap();
+}
+
+/// Options decoded from the attribute
+/// Input file (grammar)
+struct Options {
+    grammar_file: PathBuf,
+
+    /// Debugger function path
+    debugger: Option<String>,
 }
 
 #[proc_macro_attribute]
 pub fn peggy_grammar(attr: TokenStream, item: TokenStream) -> TokenStream {
     let (mod_ident, mod_vis) = parse_input_mod(item);
 
-    let grammar_file = parse_filename_attr(attr);
+    let options = parse_options_attr(attr);
 
-    if !grammar_file.exists() {
+    if !options.grammar_file.exists() {
         panic!("Grammar file was not found at path (tip: path starts from your crate's \"src\" directory)");
     }
 
-    let grammar_src = fs::read_to_string(&grammar_file).expect("Provided file could not be read");
-
-    let generated_rust = grammar_to_rust(&grammar_src);
+    let generated_rust = grammar_to_rust(&options);
 
     let expanded = quote! {
         #mod_vis mod #mod_ident {
@@ -63,22 +72,28 @@ fn parse_input_mod(item: TokenStream) -> (Ident, Visibility) {
     (mod_ident, item.vis)
 }
 
-fn parse_filename_attr(attr: TokenStream) -> PathBuf {
+fn parse_options_attr(attr: TokenStream) -> Options {
     let attr = attr.to_string();
 
-    let captured = FILENAME_ATTR.captures(&attr).expect(
-        "Please provide a grammar file path under the form: #[peggy_grammar(filename = \"<path>\")]",
+    let captured = ATTR_CONTENT.captures(&attr).expect(
+        "Please provide a grammar file path under the form: #[peggy_grammar(filename = \"<path>\")] ('debugger' may be added with the same syntax)",
     );
-    let filename = captured.get(1).unwrap().as_str();
+    let filename = captured.name("filename").unwrap();
 
-    let mut base_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    base_path.push("src");
-    base_path.push(filename);
+    let mut grammar_file = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    grammar_file.push("src");
+    grammar_file.push(filename.as_str());
 
-    base_path
+    Options {
+        grammar_file,
+        debugger: captured.name("debugger").map(|m| m.as_str().to_string()),
+    }
 }
 
-fn grammar_to_rust(grammar_src: &str) -> quote::__private::TokenStream {
+fn grammar_to_rust(options: &Options) -> quote::__private::TokenStream {
+    let grammar_src =
+        fs::read_to_string(&options.grammar_file).expect("Provided file could not be read");
+
     let grammar = parse_peg(&grammar_src).unwrap_or_else(|err| {
         panic!(
             "Failed to parse grammar: {}",
@@ -86,5 +101,5 @@ fn grammar_to_rust(grammar_src: &str) -> quote::__private::TokenStream {
         )
     });
 
-    gen_rust_token_stream(&grammar)
+    gen_rust_token_stream(&grammar, options.debugger.as_deref())
 }

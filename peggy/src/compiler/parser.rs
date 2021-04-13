@@ -1,12 +1,9 @@
+use super::data::*;
 use super::errors::{ParserError, ParserErrorContent};
 use super::singles;
 use super::utils::*;
 use super::validator::validate_parsed_peg;
 use std::collections::HashMap;
-use std::rc::Rc;
-
-/// A grammar's entrypoint rule
-pub const GRAMMAR_ENTRYPOINT_RULE: &str = "main";
 
 /// Compile a Peggy grammar to a [syntax tree](`PegSyntaxTree`)
 pub fn parse_peg(grammar: &str) -> Result<PegSyntaxTree, ParserError> {
@@ -59,15 +56,15 @@ pub fn parse_peg_nocheck(input: &str) -> Result<PegSyntaxTree, ParserError> {
         let c = chars.next().unwrap();
 
         // ...which must be a rule's name (syntax: `rule = <content>`)
-        if !c.is_alphabetic() && c != '_' {
+        if !c.is_alphabetic() {
             return Err(ParserError::new(
                 ParserLoc::new(l, trimmed),
                 1,
                 ParserErrorContent::ExpectedRuleDeclaration,
                 Some(match c {
                     '0'..='9' => "digits are not allowed to begin a rule's name",
-                    _ => "only alphabetic and underscores characters are allowed to begin a rule's name"
-                })
+                    _ => "only alphabetic characters are allowed to begin a rule's name",
+                }),
             ));
         }
 
@@ -86,7 +83,7 @@ pub fn parse_peg_nocheck(input: &str) -> Result<PegSyntaxTree, ParserError> {
             match chars.next() {
                 // Identifier-compliant characters
                 Some(c) if !rule_name_ended && (c.is_alphanumeric() || c == '_') => {
-                    rule_name_length += 1;
+                    rule_name_length += c.len_utf8();
                 }
 
                 // Assignment operator (indicates the beginning of the rule's content)
@@ -266,8 +263,7 @@ pub fn parse_pattern_suite_or_union<'a>(
                     loc: base_loc,
                     decl_length: pattern_loc.col - base_loc.col + 1,
                     repetition: None,
-                    is_silent: false,
-                    is_atomic: false,
+                    mode: None,
                     // If the parser stopped on the first pattern because it encountered an union separator, the remaining content
                     // should be put inside an union.
                     // Otherwise, and if no union separator was found during the parsing on the whole rule's content,
@@ -337,12 +333,14 @@ pub fn parse_sub_pattern(
     }
 
     // Get the first character's following the first piece
+    let next_char = input.chars().next().unwrap();
+
     let (remaining, add_trimmed) = trim_start_and_count(input);
     let is_union_sep = remaining.starts_with('|');
 
     // If we find an union separator or a whitespace, we can stop here
     // The parent will be in charge of continuing the processing
-    if is_union_sep || input.chars().next().unwrap().is_whitespace() {
+    if is_union_sep || next_char.is_whitespace() {
         Ok((
             first_pattern,
             trimmed + first_pattern_len + add_trimmed + if is_union_sep { 1 } else { 0 },
@@ -359,7 +357,7 @@ pub fn parse_sub_pattern(
         Err(ParserError::new(
             base_loc.with_add_cols(first_pattern_len),
             1,
-            ParserErrorContent::ExpectedPatternSeparatorOrEndOfLine,
+            ParserErrorContent::ExpectedPatternSeparatorOrEndOfLine(next_char),
             Some("adding another pattern to the suite requires a whitespace, or a vertical bar (|) for an union")
         ))
     }
@@ -372,17 +370,20 @@ fn parse_pattern_piece(
     input: &str,
     mut base_loc: ParserLoc,
 ) -> Result<(Pattern, usize), ParserError> {
-    // Determine if the piece is silent
-    let (trimmed, is_silent) = parse_rule_pattern_silence(input);
-
-    // Determine if the piece is atomic
-    let (trimmed2, is_atomic) = parse_rule_pattern_atomicity(input);
-
-    // Update the input
-    let input = &input[trimmed + trimmed2..];
+    let (input, trimmed, mode) = if let Some(input) = input.strip_prefix("°") {
+        (input, 2, Some(PatternMode::Silent))
+    } else if let Some(input) = input.strip_prefix("@") {
+        (input, 1, Some(PatternMode::Atomic))
+    } else if let Some(input) = input.strip_prefix("!") {
+        (input, 1, Some(PatternMode::Negative))
+    } else if let Some(input) = input.strip_prefix("~") {
+        (input, 1, Some(PatternMode::Peek))
+    } else {
+        (input, 0, None)
+    };
 
     // Update the base location
-    base_loc.add_cols(trimmed + trimmed2);
+    base_loc.add_cols(trimmed);
 
     let (value, len) =
     // Check if the value is a constant string
@@ -412,7 +413,10 @@ fn parse_pattern_piece(
     };
 
     // Get the piece's repetition model (* + ?) following it
-    let repetition = input.chars().nth(len).and_then(PatternRepetition::parse);
+    let repetition = input[len..]
+        .chars()
+        .next()
+        .and_then(PatternRepetition::parse);
 
     // Compute the consumed size
     let decl_length = len + if repetition.is_some() { 1 } else { 0 };
@@ -423,34 +427,11 @@ fn parse_pattern_piece(
             loc: base_loc,
             decl_length,
             value,
-            is_silent,
-            is_atomic,
+            mode,
             repetition,
         },
-        trimmed + trimmed2 + decl_length,
+        trimmed + decl_length,
     ))
-}
-
-/// Parse a possibly silent pattern beginning
-///
-/// If the pattern is indicated to be non-capturing (silent), the consumed size will be returned with the `true` value
-pub fn parse_rule_pattern_silence(input: &str) -> (usize, bool) {
-    if input.starts_with("_:") {
-        (2, true)
-    } else {
-        (0, false)
-    }
-}
-
-/// Parse a possibly atomic pattern beginning
-///
-/// If the pattern is indicated to be atomic, the consumed size will be returned with the `true` value
-pub fn parse_rule_pattern_atomicity(input: &str) -> (usize, bool) {
-    if input.starts_with("@:") {
-        (2, true)
-    } else {
-        (0, false)
-    }
 }
 
 // Create an union child (see usage)
@@ -462,11 +443,10 @@ fn create_union_child(patterns: Vec<Pattern>) -> Pattern {
         patterns.into_iter().next().unwrap()
     } else {
         Pattern {
-            loc: patterns[0].loc,
-            decl_length: patterns.iter().fold(0, |acc, pat| acc + pat.decl_length),
+            loc: patterns[0].loc(),
+            decl_length: patterns.iter().fold(0, |acc, pat| acc + pat.decl_length()),
             repetition: None,
-            is_silent: false,
-            is_atomic: false,
+            mode: None,
             value: RulePatternValue::Suite(patterns),
         }
     }
@@ -478,200 +458,4 @@ pub enum PatternParserStoppedBecauseOf {
     End,
     ContinuationSep,
     UnionSep,
-}
-
-/// Syntax tree generated by [the compiler](`parse_peg`)
-#[derive(Debug)]
-pub struct PegSyntaxTree<'a> {
-    rules: HashMap<&'a str, Rule<'a>>,
-}
-
-impl<'a> PegSyntaxTree<'a> {
-    /// Get the rules of the syntax tree (the map's keys are the rules' name)
-    pub fn rules(&self) -> &HashMap<&'a str, Rule<'a>> {
-        &self.rules
-    }
-
-    /// Get the rule's main rule
-    pub fn main_rule(&self) -> &Rule<'a> {
-        &self.rules[GRAMMAR_ENTRYPOINT_RULE]
-    }
-}
-
-/// A rule's content, parsed by the [`parse_rule_content`] function
-#[derive(Debug)]
-pub struct Rule<'a> {
-    /// Rule's name
-    pub(crate) name: &'a str,
-
-    /// Inner pattern
-    pub(crate) pattern: Pattern<'a>,
-
-    /// Declaration location
-    pub(crate) decl_loc: ParserLoc,
-}
-
-impl<'a> Rule<'a> {
-    pub fn name(&self) -> &'a str {
-        &self.name
-    }
-
-    pub fn pattern(&self) -> &Pattern<'a> {
-        &self.pattern
-    }
-
-    pub fn decl_loc(&self) -> ParserLoc {
-        self.decl_loc
-    }
-}
-
-/// A rule's pattern, parsed by the [`parse_rule_pattern`] function
-#[derive(Debug)]
-pub struct Pattern<'a> {
-    /// Pattern's beginning, relative to its parent
-    loc: ParserLoc,
-
-    /// Length of the pattern
-    decl_length: usize,
-
-    /// Repetition model
-    repetition: Option<PatternRepetition>,
-
-    /// Is the pattern silent?
-    is_silent: bool,
-
-    /// Is the pattern atomic?
-    is_atomic: bool,
-
-    /// The pattern's value
-    value: RulePatternValue<'a>,
-}
-
-impl<'a> Pattern<'a> {
-    /// Get the pattern's beginning, relatively to its parent
-    pub fn loc(&self) -> ParserLoc {
-        self.loc
-    }
-
-    /// Get the length of the pattern, which is the size of its declaration in the input grammar
-    pub fn decl_length(&self) -> usize {
-        self.decl_length
-    }
-
-    /// Get the pattern's repetition model
-    pub fn repetition(&self) -> Option<PatternRepetition> {
-        self.repetition
-    }
-
-    /// Is the pattern silent?
-    pub fn is_silent(&self) -> bool {
-        self.is_silent
-    }
-
-    /// Is the pattern atomic?
-    pub fn is_atomic(&self) -> bool {
-        self.is_atomic
-    }
-
-    /// Get the pattern's value
-    pub fn value(&self) -> &RulePatternValue<'a> {
-        &self.value
-    }
-}
-
-/// [Rule pattern](`RulePattern`)'s repetition
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PatternRepetition {
-    // The pattern can be provided any number of times
-    Any,
-
-    // The pattern can be provided one or more times
-    OneOrMore,
-
-    // The pattern can be provided or not
-    Optional,
-}
-
-impl PatternRepetition {
-    /// Check if a symbol is a valid repetition symbol
-    pub fn is_valid_symbol(symbol: char) -> bool {
-        symbol == '*' || symbol == '+' || symbol == '?'
-    }
-
-    /// Try to parse a repetition symbol
-    pub fn parse(symbol: char) -> Option<Self> {
-        match symbol {
-            '*' => Some(Self::Any),
-            '+' => Some(Self::OneOrMore),
-            '?' => Some(Self::Optional),
-            _ => None,
-        }
-    }
-
-    /// Get the symbol associated to a rule's repetition model
-    pub fn symbol(self) -> char {
-        match self {
-            Self::Any => '*',
-            Self::OneOrMore => '+',
-            Self::Optional => '?',
-        }
-    }
-}
-
-/// A single [`RulePattern`]'s value, indicating which content it must match
-#[derive(Debug)]
-pub enum RulePatternValue<'a> {
-    /// Match a constant string
-    CstString(&'a str),
-
-    /// Match using another rule's content
-    Rule(&'a str),
-
-    /// Match using a group (will match on the inner pattern)
-    Group(Rc<Pattern<'a>>),
-
-    /// Match a suite of patterns
-    Suite(Vec<Pattern<'a>>),
-
-    /// Match one of the provided patterns
-    /// Evaluation is performed in order, and the first matching pattern will be used
-    Union(Vec<Pattern<'a>>),
-}
-
-/// Location in the input grammar
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ParserLoc {
-    /// Line number
-    line: usize,
-
-    /// Column number
-    col: usize,
-}
-
-impl ParserLoc {
-    /// Create a new location
-    pub(crate) fn new(line: usize, col: usize) -> Self {
-        Self { line, col }
-    }
-
-    /// Get the location's line number
-    pub fn line(&self) -> usize {
-        self.line
-    }
-
-    /// Get the location's column number
-    pub fn col(&self) -> usize {
-        self.col
-    }
-
-    pub(super) fn add_cols(&mut self, cols: usize) {
-        self.col += cols;
-    }
-
-    pub(super) fn with_add_cols(&self, cols: usize) -> Self {
-        Self {
-            line: self.line,
-            col: self.col + cols,
-        }
-    }
 }

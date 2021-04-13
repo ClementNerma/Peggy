@@ -16,5 +16,5 @@ fn main() {
         panic!("Failed to parse PRN grammar");
     });
 
-    println!("{}", gen_rust_str(&pst));
+    println!("{}", gen_rust_str(&pst, None));
 }
