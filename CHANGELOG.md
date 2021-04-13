@@ -4,68 +4,55 @@
 
 ### Version 0.5.5 (April 13th, 2021)
 
-* **QoF:** Speed up validation of union members
-* **Bugfix:** Stack overflow when validating recursive patterns
 
-### Version 0.5.4 (April 13th, 2021)
 
-* **Minor:** Added `B_ALPHABETIC` and `B_ALPHANUMERIC` builtin rules
 
-### Version 0.5.3 (April 13th, 2021)
 
-* **BREAKING:** Store absolute position instead of relative in patterns
 
-### Version 0.5.2 (April 13th, 2021)
-
-* **BREAKING:** Rename error variants
-* **QoF:** Improve some error messages
-
-### Version 0.5.1 (April 13th, 2021)
+### Version 0.5.x (April 13th, 2021)
 
 * **BREAKING:** Forbid empty strings in patterns
 * **BREAKING:** Forbid potentially-empty union members (which would lead to infinite loops)
-* **Minor:** Add length in patterns
-* **Fix:** wrong column displayed in patterns declaration
+* **BREAKING:** Store absolute position instead of relative in patterns
+* **BREAKING:** Rename error variants
 
-### Version 0.5.0 (April 13th, 2021)
+* **QoF:** Improve some error messages
+* **QoF:** Speed up validation of union members
 
 * **MAJOR:** Introduce atomic rules
+
+* **Minor:** Add length in patterns
+* **Minor:** Added `B_ALPHABETIC` and `B_ALPHANUMERIC` builtin rules
+
+* **Fix:** wrong column displayed in patterns declaration
 * **Fix:** Various bug fixes
+* **Fix:** Stack overflow when validating recursive patterns
 
-### Version 0.4.2 (April 13th, 2021)
-
-* **BREAKING:** Detect unused rules
-
-### Version 0.4.1 (April 13th, 2021)
-
-* **BREAKING:** Rename the `RuleContent` type to `Rule`
-* **Minor:** Add declaration location and name to the `Rule` type
-
-### Version 0.4.0 (April 13th, 2021)
+### Version 0.4.x (April 13th, 2021)
 
 * **BREAKING:** Rename:
   * `Patterns` to `Rules`
   * `Pieces` to `Patterns`
   * `Sub-pieces` to `Pieces`
   * So now we have rules being made of patterns, and themselves of pieces
+* **BREAKING:** Rename the `RuleContent` type to `Rule`
 * **BREAKING:** Types have been renamed accordingly
+* **BREAKING:** Detect unused rules
+
+* **Minor:** Add declaration location and name to the `Rule` type
 
 ### Version 0.3.0 (April 12th, 2021)
 
 * **MAJOR:** Introduce the [parser generator](peggy_derive/)
 
-### Version 0.2.2 (April 12th, 2021)
+### Version 0.2.x (April 12th, 2021)
 
 * **BREAKING:** Remove unstable builtin patterns `B_EOI`, `B_TRUE` and `B_FALSE`
-* **Minor:** Make the `GRAMMAR_ENTRYPOINT_PATTERN` constant public
-
-### Version 0.2.1 (April 12th, 2021)
-
-* **Minor:** Change visibility of generators
-
-### Version 0.2.0 (April 12th, 2021)
 
 * **MAJOR:** Add support for silent patterns (`_:`)
+
+* **Minor:** Make the `GRAMMAR_ENTRYPOINT_PATTERN` constant public
+* **Minor:** Change visibility of generators
 
 ### Version 0.1.0 (April 9th, 2021)
 
