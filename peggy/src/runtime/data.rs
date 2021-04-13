@@ -43,6 +43,9 @@ pub enum MatchedData<'a> {
     /// Matched repeated data from a single pattern
     RepeatedPattern(Vec<MatchedData<'a>>),
 
+    /// Matched an atomic pattern
+    AtomicPattern(&'a str),
+
     /// Matched a builtin rule
     BuiltinRule { name: &'a str, symbol: Option<char> },
 

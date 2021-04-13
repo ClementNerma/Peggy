@@ -2,7 +2,7 @@ use super::builtin;
 use super::data::{MatchedData, MatchedRule};
 use super::errors::{RuntimeError, RuntimeErrorContent, RuntimeTreeItem};
 use crate::compiler::utils::{is_builtin_rule_name, is_external_rule_name};
-use crate::compiler::{PatternRepetition, PegSyntaxTree, Pattern, RulePatternValue};
+use crate::compiler::{Pattern, PatternRepetition, PegSyntaxTree, RulePatternValue};
 use std::rc::Rc;
 
 /// Match a subject string against a [parsed grammar](crate::compiler::parse_peg).
@@ -52,7 +52,7 @@ pub fn match_pattern<'a, 'b: 'a>(
     };
 
     // The matching method depends on the repetition model (see [`crate::compiler::RuleRepetition`])
-    match pattern.repetition() {
+    let (data, consumed) = match pattern.repetition() {
         // If there is no rule, match and fail in case of error
         None => try_match(input, cursor),
 
@@ -132,7 +132,16 @@ pub fn match_pattern<'a, 'b: 'a>(
                 ),
             }),
         },
-    }
+    }?;
+
+    Ok((
+        if pattern.is_atomic() {
+            data.map(|_| MatchedData::AtomicPattern(&input[..consumed]))
+        } else {
+            data
+        },
+        consumed,
+    ))
 }
 
 /// Match the given input against a single [`RulePatternValue`]

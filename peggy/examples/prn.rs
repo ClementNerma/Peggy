@@ -9,7 +9,7 @@ static PRN_GRAMMAR: &str = r#"
 S = _:B_WHITESPACE                          # Whitespace
 DEC_SEP = _:("." | ",")                     # Decimal separator
 
-int = B_ASCII_DIGIT+                        # Integer
+int = @:(B_ASCII_DIGIT+)                        # Integer
 float = int DEC_SEP int                     # Floating-point number
 number = int | float                        # Number
 
@@ -152,27 +152,8 @@ fn eval_expr(matching: &MatchedRule) -> f64 {
         },
 
         "int" => match data {
-            MatchedData::RepeatedPattern(digits) => {
-                let mut num: f64 = 0.0;
-
-                for digit in digits {
-                    match digit {
-                        MatchedData::BuiltinRule {
-                            name: "B_ASCII_DIGIT",
-                            symbol,
-                        } => {
-                            num *= 10.0;
-                            num += symbol.unwrap().to_digit(10).unwrap() as f64;
-                        }
-                        _ => unreachable!(
-                            "'int' rule's repeated patterns aren't 'B_ASCII_DIGIT' rules"
-                        ),
-                    }
-                }
-
-                num
-            }
-            _ => unreachable!("'int' rule isn't made of repeated patterns"),
+            MatchedData::AtomicPattern(digits) => digits.parse::<f64>().unwrap(),
+            _ => unreachable!("'int' rule isn't made of an atomic pattern"),
         },
 
         "float" => match data {
