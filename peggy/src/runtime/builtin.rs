@@ -1,10 +1,10 @@
-/// Match using a one-character builtin pattern
+/// Match using a one-character builtin rule
 ///
-/// If the pattern does not exist, the `None` value will be returned.
+/// If the rule does not exist, the `None` value will be returned.
 /// If it exists but does not match, this function will return `false`.
 /// Otherwise, it will return `true`, indicating a match. A single character should be consumed from the input in that case.
-pub fn match_builtin_pattern(pattern_name: &str, next_char: Option<char>) -> Option<bool> {
-    Some(match pattern_name {
+pub fn match_builtin_rule(rule_name: &str, next_char: Option<char>) -> Option<bool> {
+    Some(match rule_name {
         "B_ANY" => next_char.is_some(),
 
         "B_NEWLINE_CR" => next_char.map(|c| c == '\r').unwrap_or(false),
@@ -33,7 +33,7 @@ pub fn match_builtin_pattern(pattern_name: &str, next_char: Option<char>) -> Opt
         "B_WHITESPACE" => next_char.map(|c| c.is_whitespace()).unwrap_or(false),
 
         _ => return None,
-        // NOTE: When adding a new item to this list, the `BUILTIN_PATTERNS` static also needs to be updated
-        // NOTE: Also needs to be updated the Rust generator for these patterns
+        // NOTE: When adding a new item to this list, the `BUILTIN_RULES` static also needs to be updated
+        // NOTE: Also needs to be updated the Rust generator for these rules
     })
 }

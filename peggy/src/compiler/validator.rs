@@ -1,7 +1,7 @@
 use super::errors::{ParserError, ParserErrorContent};
-use super::parser::{PatternPiece, PatternPieceValue, PegSyntaxTree};
+use super::parser::{PegSyntaxTree, Pattern, RulePatternValue};
 use super::utils::{
-    add_parser_loc, is_builtin_pattern_name, is_external_pattern_name, is_valid_builtin_pattern,
+    add_parser_loc, is_builtin_rule_name, is_external_rule_name, is_valid_builtin_rule_name,
 };
 use super::ParserLoc;
 
@@ -9,45 +9,41 @@ use super::ParserLoc;
 ///
 /// Expressions parsed with [`super::parse_peg`] don't require this check, as it is already performed automatically.
 pub fn validate_parsed_peg(parsed: &PegSyntaxTree) -> Result<(), ParserError> {
-    // Validate each pattern one by one
-    for pattern in parsed.patterns().values() {
-        validate_piece_recursive(
-            parsed,
-            pattern.inner_piece().relative_loc(),
-            pattern.inner_piece(),
-        )?;
+    // Validate each rule one by one
+    for rule in parsed.rules().values() {
+        validate_pattern_recursive(parsed, rule.pattern().relative_loc(), rule.pattern())?;
     }
 
     Ok(())
 }
 
-/// Validate a [`PatternPiece`] recursively
-fn validate_piece_recursive(
+/// Validate a [`RulePattern`] recursively
+fn validate_pattern_recursive(
     parsed: &PegSyntaxTree,
     loc: ParserLoc,
-    piece: &PatternPiece,
+    pattern: &Pattern,
 ) -> Result<(), ParserError> {
-    match piece.value() {
+    match pattern.value() {
         // Constant strings don't need any validation
-        PatternPieceValue::CstString(_) => Ok(()),
+        RulePatternValue::CstString(_) => Ok(()),
 
-        // For patterns, ensure the specified one exists
-        PatternPieceValue::Pattern(name) => {
-            // Uppercase-only patterns cannot be declared normally, and can be used to refer to an external pattern
-            // Else, ensure the provided pattern has been declared
-            if parsed.patterns().contains_key(name)
-                || is_external_pattern_name(name)
-                || is_valid_builtin_pattern(name)
+        // For rules, ensure the specified one exists
+        RulePatternValue::Rule(name) => {
+            // Uppercase-only rules cannot be declared normally, and can be used to refer to an external rule
+            // Else, ensure the provided rule has been declared
+            if parsed.rules().contains_key(name)
+                || is_external_rule_name(name)
+                || is_valid_builtin_rule_name(name)
             {
                 Ok(())
             } else {
                 Err(ParserError::new(
                     loc,
                     name.len(),
-                    if is_builtin_pattern_name(name) {
-                        ParserErrorContent::UnknownBuiltinPattern
+                    if is_builtin_rule_name(name) {
+                        ParserErrorContent::UnknownBuiltinRule
                     } else {
-                        ParserErrorContent::UnknownPattern
+                        ParserErrorContent::UnknownRule
                     },
                     None,
                 ))
@@ -55,19 +51,19 @@ fn validate_piece_recursive(
         }
 
         // Develop groups
-        PatternPieceValue::Group(piece) => validate_piece_recursive(
+        RulePatternValue::Group(pattern) => validate_pattern_recursive(
             parsed,
-            add_parser_loc(loc.line(), loc.col(), piece.relative_loc()),
-            piece,
+            add_parser_loc(loc.line(), loc.col(), pattern.relative_loc()),
+            pattern,
         ),
 
         // Develop suites and unions
-        PatternPieceValue::Suite(pieces) | PatternPieceValue::Union(pieces) => {
-            for piece in pieces {
-                validate_piece_recursive(
+        RulePatternValue::Suite(patterns) | RulePatternValue::Union(patterns) => {
+            for pattern in patterns {
+                validate_pattern_recursive(
                     parsed,
-                    add_parser_loc(loc.line(), loc.col(), piece.relative_loc()),
-                    piece,
+                    add_parser_loc(loc.line(), loc.col(), pattern.relative_loc()),
+                    pattern,
                 )?;
             }
 

@@ -39,7 +39,7 @@
 //! let parsed = execute(&RuntimeContext {
 //!     grammar: &grammar,
 //!     subject,
-//!     external_patterns: None,
+//!     external_rules: None,
 //!     options: RuntimeOptions::new(),
 //! })
 //! .unwrap_or_else(|err| panic!("{}", err));

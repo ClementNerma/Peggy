@@ -46,28 +46,28 @@ pub fn sub_parser_loc(base_line: usize, base_col: usize, target_loc: ParserLoc) 
     )
 }
 
-/// Check if a pattern's name refers to a builtin one
-pub fn is_builtin_pattern_name(name: &str) -> bool {
+/// Check if a rule's name refers to a builtin one
+pub fn is_builtin_rule_name(name: &str) -> bool {
     name.starts_with("B_")
 }
 
-/// Check if a pattern's name refers to an existing builtin pattern
-pub fn is_valid_builtin_pattern(name: &str) -> bool {
-    BUILTIN_PATTERNS.contains(&name)
+/// Check if a rule's name refers to an existing builtin rule
+pub fn is_valid_builtin_rule_name(name: &str) -> bool {
+    BUILTIN_RULES.contains(&name)
 }
 
-/// Check if a pattern's name refers to an external one
-pub fn is_external_pattern_name(name: &str) -> bool {
+/// Check if a rule's name refers to an external one
+pub fn is_external_rule_name(name: &str) -> bool {
     name.starts_with("E_")
 }
 
-/// Check if a pattern name is reserved
-pub fn is_reserved_pattern_name(name: &str) -> bool {
-    is_builtin_pattern_name(name) || is_external_pattern_name(name)
+/// Check if a rule name is reserved
+pub fn is_reserved_rule_name(name: &str) -> bool {
+    is_builtin_rule_name(name) || is_external_rule_name(name)
 }
 
-/// Exhaustive list of all builtin patterns
-pub static BUILTIN_PATTERNS: &[&str] = &[
+/// Exhaustive list of all builtin rules
+pub static BUILTIN_RULES: &[&str] = &[
     "B_ANY",
     "B_NEWLINE_CR",
     "B_NEWLINE_LF",

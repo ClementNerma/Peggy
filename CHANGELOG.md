@@ -2,6 +2,14 @@
 
 ## Pre-1.0 versions
 
+### Version 0.4.0 (April 13th, 2021)
+
+* Rename:
+  * `Patterns` to `Rules`
+  * `Pieces` to `Patterns`
+  * `Sub-pieces` to `Pieces`
+  * So now we have rules being made of patterns, and themselves of pieces
+
 ### Version 0.3.0 (April 12th, 2021)
 
 * Introduce the [parser generator](peggy_derive/)

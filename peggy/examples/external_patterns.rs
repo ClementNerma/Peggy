@@ -9,7 +9,7 @@ fn main() {
     let exec = |subject: &'static str| {
         execute(&RuntimeContext {
             grammar: &grammar,
-            external_patterns: Some(Box::new(|pattern, input| match pattern {
+            external_rules: Some(Box::new(|rule, input| match rule {
                 "E_LETTER_A" => Some(match input.chars().next() {
                     Some('a') | Some('A') => Ok(1),
                     Some(_) => Err("Next character is not the 'A' letter".to_string()),

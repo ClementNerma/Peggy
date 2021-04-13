@@ -55,7 +55,7 @@ ERROR: At line 1, column 7:
 1 | Hello worlf !!
           ^
 
-In pattern [world]: Expected string literal "world"
+In rule [world]: Expected string literal "world"
 ```
 
 ## Grammar specifications
@@ -73,38 +73,38 @@ The grammar is made of multiple lines, which can either be:
 * Empty
 * Made of whitespaces
 * Empty or made of whitespaces AND of a comment
-* A pattern declaration
+* A rule declaration
 
-Pattern declarations start with the pattern's name, which must respect the following rules:
+Rule declarations start with the rule's name, which must respect the following rules:
 
 * Only alphanumeric and underscores are allowed
 * The name cannot start with a digit
-* The name cannot start with `B_` as this is reserved for builtin patterns
-* The name cannot start with `E_` as this is reserved for external patterns
+* The name cannot start with `B_` as this is reserved for builtin rules
+* The name cannot start with `E_` as this is reserved for external rules
 * They must contain at least one character
-* Two patterns cannot have the same name
+* Two rules cannot have the same name
 
-They continue with the assignment operator (`=`) and the pattern's content, which is made of a _piece_. Pieces can either be:
+They continue with the assignment operator (`=`) and the rule's content, which is made of a _pattern_. Patterns can either be:
 
-* A fixed string, between double quotes - there is no escaping machnism, newline symbols and double quotes can be matched using [builtin patterns](#builtin-patterns)
-* Another pattern's name (the provided pattern will be used for matching)
-* A group (a piece wrapped between parenthesis)
-* A list of pieces separated by whitespaces (all pieces will need to match the input)
-* An union of pieces separated by vertical bars `|` (at least one the piece will need to match the input)
+* A fixed string, between double quotes - there is no escaping machnism, newline symbols and double quotes can be matched using [builtin rules](#builtin-rules)
+* Another rule's name (the provided rule will be used for matching)
+* A group (a pattern wrapped between parenthesis)
+* A list of patterns separated by whitespaces (all patterns will need to match the input)
+* An union of patterns separated by vertical bars `|` (at least one the pattern will need to match the input)
 
-Pieces can be decorated with a _repetition model_ (no whitespace must be present between the end of the piece and the model). It can either be:
+Patterns can be decorated with a _repetition model_ (no whitespace must be present between the end of the pattern and the model). It can either be:
 
-* `+`: match this piece as much as possible, but at least once
-* `*`: match this piece as much as possible, zero matching is allowed
-* `?`: match this piece one time if possible, zero matching is allowed
+* `+`: match this pattern as much as possible, but at least once
+* `*`: match this pattern as much as possible, zero matching is allowed
+* `?`: match this pattern one time if possible, zero matching is allowed
 
-Pieces can also be made _silent_ to avoid capturing anything, by prefixing them with `_:` (no space allowed).
+Patterns can also be made _silent_ to avoid capturing anything, by prefixing them with `_:` (no space allowed).
 
-## Builtin patterns
+## Builtin rules
 
-There are multiple builtin patterns, which will only match at most one single character:
+There are multiple builtin rules, which will only match at most one single character:
 
-| Pattern's name         | Description                   |
+| Rule's name            | Description                   |
 | ---------------------- | ----------------------------- |
 | `B_ANY`                | Any character                 |
 | `B_NEWLINE_CR`         | Match `\r` newline characters |
@@ -129,7 +129,7 @@ There are multiple builtin patterns, which will only match at most one single ch
 
 ## External characters
 
-A callback can be provided to the execution engine to handle external patterns, which are prefixed with `E_`. See the documentation for more informations.
+A callback can be provided to the execution engine to handle external rules, which are prefixed with `E_`. See the documentation for more informations.
 
 ## License
 

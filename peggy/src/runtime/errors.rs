@@ -45,9 +45,9 @@ impl<'a> RuntimeError<'a> {
 
     /// (Internal) Format with path shortening to avoid getting too long paths
     fn format_with_shortening(&self, shorten_path: usize) -> String {
-        // Get the error's displayable path, the last pattern of the path, the current path's length which will be used for children shortening,
+        // Get the error's displayable path, the last rule of the path, the current path's length which will be used for children shortening,
         // as well as the error's offset in the stored input.
-        let (display_path, last_pattern_item, sub_path_shortening, offset) = match &self.cursor {
+        let (display_path, last_rule_item, sub_path_shortening, offset) = match &self.cursor {
             Some(cursor) => {
                 let segments = cursor
                     .path()
@@ -58,10 +58,8 @@ impl<'a> RuntimeError<'a> {
 
                 let joined = segments.join(" => ");
 
-                let last_pattern_item = cursor.path().iter().rev().find_map(|item| match item {
-                    RuntimeTreeItem::Pattern(pattern) => {
-                        Some(format!("In pattern [{}]: ", pattern))
-                    }
+                let last_rule_item = cursor.path().iter().rev().find_map(|item| match item {
+                    RuntimeTreeItem::Rule(rule) => Some(format!("In rule [{}]: ", rule)),
                     _ => None,
                 });
 
@@ -71,7 +69,7 @@ impl<'a> RuntimeError<'a> {
                     } else {
                         joined
                     },
-                    last_pattern_item,
+                    last_rule_item,
                     segments.len(),
                     cursor.offset(),
                 )
@@ -108,7 +106,7 @@ impl<'a> RuntimeError<'a> {
             line_index + 1,
             self.subject.lines().nth(line_index).unwrap(),
             " ".repeat(column + (line_index + 1).to_string().len() + 3),
-            last_pattern_item.unwrap_or_else(String::new),
+            last_rule_item.unwrap_or_else(String::new),
             self.content.format_with_shortening(sub_path_shortening)
         )
     }
@@ -123,10 +121,10 @@ impl<'a> fmt::Display for RuntimeError<'a> {
 /// Runtime error's content (used in [`RuntimeError`])
 #[derive(Debug)]
 pub enum RuntimeErrorContent<'a> {
-    /// A pattern was not found
+    /// A rule was not found
     ///
     /// This may only happen with [unchecked grammars](crate::compiler::parse_peg_nocheck)
-    PatternNotFound(&'a str),
+    RuleNotFound(&'a str),
 
     /// Did not match a constant string
     CstStringNotMatching(&'a str),
@@ -137,11 +135,11 @@ pub enum RuntimeErrorContent<'a> {
     /// Remaining content was found after the end of the grammar
     UnexpectedContent,
 
-    /// Failed to match against builtin pattern
-    BuiltinPattern(&'a str),
+    /// Failed to match against builtin rule
+    BuiltinRule(&'a str),
 
-    /// Failed to match against external pattern
-    ExternalPattern { name: &'a str, message: String },
+    /// Failed to match against external rule
+    ExternalRule { name: &'a str, message: String },
 }
 
 impl<'a> RuntimeErrorContent<'a> {
@@ -153,8 +151,8 @@ impl<'a> RuntimeErrorContent<'a> {
     /// (Internal) Format with path shortening to avoid getting too long paths
     fn format_with_shortening(&self, shorten_path: usize) -> String {
         match self {
-            Self::PatternNotFound(name) => {
-                format!("Pattern [{}] was not found", name)
+            Self::RuleNotFound(name) => {
+                format!("Rule [{}] was not found", name)
             }
             Self::CstStringNotMatching(string) => {
                 format!("Expected string literal {:?}", string)
@@ -186,12 +184,12 @@ impl<'a> RuntimeErrorContent<'a> {
             Self::UnexpectedContent => {
                 "End of content was expected, found additional symbol".to_string()
             }
-            Self::BuiltinPattern(name) => {
-                format!("Failed to match against builtin pattern \"{}\"", name)
+            Self::BuiltinRule(name) => {
+                format!("Failed to match against builtin rule \"{}\"", name)
             }
-            Self::ExternalPattern { name, message } => {
+            Self::ExternalRule { name, message } => {
                 format!(
-                    "Failed to match against external pattern \"{}\": {}",
+                    "Failed to match against external rule \"{}\": {}",
                     name, message
                 )
             }
@@ -208,25 +206,25 @@ impl<'a> fmt::Display for RuntimeErrorContent<'a> {
 /// Runtime tree item, used to build the visit path of a [`RuntimeError`]
 #[derive(Debug, Clone, Copy)]
 pub enum RuntimeTreeItem<'a> {
-    /// Pattern
-    Pattern(&'a str),
+    /// Rule
+    Rule(&'a str),
 
     /// Group
     Group,
 
-    /// Nth member of a contiguous group (whitespace-separated pieces)
+    /// Nth member of a contiguous group (whitespace-separated patterns)
     FollowedMember(usize),
 
-    /// Nth member of an union group (| -separated pieces)
+    /// Nth member of an union group (| -separated patterns)
     UnionMember(usize),
 }
 
 impl<'a> fmt::Display for RuntimeTreeItem<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Pattern(pattern) => write!(f, "Pattern [{}]", pattern),
+            Self::Rule(rule) => write!(f, "Rule [{}]", rule),
             Self::Group => write!(f, "Group"),
-            Self::FollowedMember(i) => write!(f, "Consecutive piece {}", i + 1),
+            Self::FollowedMember(i) => write!(f, "Consecutive pattern {}", i + 1),
             Self::UnionMember(i) => write!(f, "Union member {}", i + 1),
         }
     }

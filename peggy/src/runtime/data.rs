@@ -1,54 +1,54 @@
 use std::rc::Rc;
 
-/// Data matched against a pattern
+/// Data matched against a rule
 #[derive(Debug)]
-pub struct MatchingPattern<'a> {
-    /// Name of the matched pattern
+pub struct MatchedRule<'a> {
+    /// Name of the matched rule
     pub(super) name: &'a str,
 
-    /// Data captured in the pattern
-    /// Will be `None` if the pattern is silent
+    /// Data captured in the rule
+    /// Will be `None` if the rule is silent
     pub(super) data: MatchedData<'a>,
 }
 
-impl<'a> MatchingPattern<'a> {
-    /// Get a reference to matched pattern's name
+impl<'a> MatchedRule<'a> {
+    /// Get a reference to matched rule's name
     pub fn name(&self) -> &'a str {
         self.name
     }
 
-    /// Get a reference to matched pattern's data
-    /// Will be `None` if the pattern is silent
+    /// Get a reference to matched rule's data
+    /// Will be `None` if the rule is silent
     pub fn data(&self) -> &MatchedData<'a> {
         &self.data
     }
 }
 
-/// Matched data (used in [`MatchingPattern`])
+/// Matched data (used in [`MatchedRule`])
 #[derive(Debug)]
 pub enum MatchedData<'a> {
     /// Matched a constant string
     CstString(&'a str),
 
-    /// Matched against another pattern
-    Pattern(Rc<MatchingPattern<'a>>),
+    /// Matched against another rule
+    Rule(Rc<MatchedRule<'a>>),
 
     /// Matched a suite of elements
     SuiteOf(Vec<MatchedData<'a>>),
 
-    /// Matched an optional piece
+    /// Matched an optional pattern
     /// The Rc's inner value will be `None` if it's non-capturing
-    OptionalPiece(Option<Rc<Option<MatchedData<'a>>>>),
+    OptionalPattern(Option<Rc<Option<MatchedData<'a>>>>),
 
-    /// Matched repeated data from a single piece
-    RepeatedPiece(Vec<MatchedData<'a>>),
+    /// Matched repeated data from a single pattern
+    RepeatedPattern(Vec<MatchedData<'a>>),
 
-    /// Matched a builtin pattern
-    BuiltinPattern { name: &'a str, symbol: Option<char> },
+    /// Matched a builtin rule
+    BuiltinRule { name: &'a str, symbol: Option<char> },
 
-    /// Matched an external pattern
-    ExternalPattern { name: &'a str, matched: &'a str },
+    /// Matched an external rule
+    ExternalRule { name: &'a str, matched: &'a str },
 
-    /// Matched a silent pattern
-    SilentPattern,
+    /// Matched a silent rule
+    SilentRule,
 }

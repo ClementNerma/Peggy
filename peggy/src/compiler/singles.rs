@@ -1,8 +1,8 @@
 use super::errors::{ParserError, ParserErrorContent};
-use super::parser::{parse_pattern_content, ParserLoc, PatternPiece, PatternRepetition};
+use super::parser::{parse_rule_content, ParserLoc, PatternRepetition, Pattern};
 use std::rc::Rc;
 
-/// Try to match a constant string piece
+/// Try to match a constant string pattern
 pub fn cst_string(input: &str) -> Result<Option<(&str, usize)>, ParserError> {
     let mut chars = input.chars();
 
@@ -35,8 +35,8 @@ pub fn cst_string(input: &str) -> Result<Option<(&str, usize)>, ParserError> {
     Ok(Some((&input[1..col], col + 1)))
 }
 
-/// Try to match a pattern's name
-pub fn pattern_name(input: &str) -> Result<Option<(&str, usize)>, ParserError> {
+/// Try to match a rule's name
+pub fn rule_name(input: &str) -> Result<Option<(&str, usize)>, ParserError> {
     let mut chars = input.chars();
 
     match chars.next() {
@@ -56,7 +56,7 @@ pub fn pattern_name(input: &str) -> Result<Option<(&str, usize)>, ParserError> {
                 ParserLoc::new(0, name_len),
                 1,
                 ParserErrorContent::IllegalSymbol(c),
-                Some("check if you have spelled the pattern's name correctly"),
+                Some("check if you have spelled the rule's name correctly"),
             ));
         }
 
@@ -67,7 +67,7 @@ pub fn pattern_name(input: &str) -> Result<Option<(&str, usize)>, ParserError> {
 }
 
 /// Try to match a group
-pub fn group(input: &str) -> Result<Option<(Rc<PatternPiece>, usize)>, ParserError> {
+pub fn group(input: &str) -> Result<Option<(Rc<Pattern>, usize)>, ParserError> {
     let mut chars = input.chars();
 
     let mut opened_string = false;
@@ -113,7 +113,7 @@ pub fn group(input: &str) -> Result<Option<(Rc<PatternPiece>, usize)>, ParserErr
     }
 
     Ok(Some((
-        Rc::new(parse_pattern_content(&input[1..group_length - 1], ParserLoc::new(0, 1))?.0),
+        Rc::new(parse_rule_content(&input[1..group_length - 1], ParserLoc::new(0, 1))?.0),
         group_length,
     )))
 }

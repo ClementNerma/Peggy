@@ -1,5 +1,5 @@
 use super::parser::ParserLoc;
-use super::utils::{add_parser_loc, BUILTIN_PATTERNS};
+use super::utils::{add_parser_loc, BUILTIN_RULES};
 use std::fmt;
 
 /// Add base location to an error instance.
@@ -18,17 +18,17 @@ pub fn add_base_err_loc(base_line: usize, base_col: usize, err: ParserError) -> 
                     started_at: add_parser_loc(base_line, base_col, started_at),
                 }
             }
-            ParserErrorContent::ExpectedPatternAssignmentOp
-            | ParserErrorContent::ExpectedPatternContent
-            | ParserErrorContent::ExpectedPatternDeclaration
+            ParserErrorContent::ExpectedRuleAssignmentOp
+            | ParserErrorContent::ExpectedRuleContent
+            | ParserErrorContent::ExpectedRuleDeclaration
             | ParserErrorContent::ExpectedPatternSeparatorOrEndOfLine
             | ParserErrorContent::ExpectedFollowContinuation
             | ParserErrorContent::ExpectedUnionContinuation
-            | ParserErrorContent::ReservedUppercasePatternName
-            | ParserErrorContent::DuplicatePatternName
-            | ParserErrorContent::MissingMainPattern
-            | ParserErrorContent::UnknownPattern
-            | ParserErrorContent::UnknownBuiltinPattern
+            | ParserErrorContent::ReservedUppercaseRuleName
+            | ParserErrorContent::DuplicateRuleName
+            | ParserErrorContent::MissingMainRule
+            | ParserErrorContent::UnknownRule
+            | ParserErrorContent::UnknownBuiltinRule
             | ParserErrorContent::UnterminatedMultiLineComment { started_at: _ } // As this one is global, it does not adaptation
             | ParserErrorContent::IllegalSymbol(_) => err.content,
         },
@@ -95,41 +95,41 @@ impl ParserError {
 /// Content of a [`ParserError`]
 #[derive(Debug)]
 pub enum ParserErrorContent {
-    ExpectedPatternDeclaration,
+    ExpectedRuleDeclaration,
     IllegalSymbol(char),
-    ExpectedPatternAssignmentOp,
-    ReservedUppercasePatternName,
-    DuplicatePatternName,
-    ExpectedPatternContent,
+    ExpectedRuleAssignmentOp,
+    ReservedUppercaseRuleName,
+    DuplicateRuleName,
+    ExpectedRuleContent,
     UnclosedGroup { started_at: ParserLoc },
     ExpectedPatternSeparatorOrEndOfLine,
     ExpectedFollowContinuation,
     ExpectedUnionContinuation,
     UnterminatedCstString { started_at: ParserLoc },
-    UnknownPattern,
-    UnknownBuiltinPattern,
+    UnknownRule,
+    UnknownBuiltinRule,
     UnterminatedMultiLineComment { started_at: ParserLoc },
-    MissingMainPattern,
+    MissingMainRule,
 }
 
 impl fmt::Display for ParserErrorContent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::ExpectedPatternDeclaration => write!(f, "Expected pattern declaration"),
+            Self::ExpectedRuleDeclaration => write!(f, "Expected rule declaration"),
             Self::IllegalSymbol(s) => write!(f, "Illegal symbol '{}'", s),
-            Self::ExpectedPatternAssignmentOp => {
-                write!(f, "Expected pattern assignment operator (=)")
+            Self::ExpectedRuleAssignmentOp => {
+                write!(f, "Expected rule assignment operator (=)")
             }
-            Self::ReservedUppercasePatternName => {
+            Self::ReservedUppercaseRuleName => {
                 write!(
                     f,
-                    "All-uppercase pattern names are reserved for external patterns"
+                    "All-uppercase rule names are reserved for external rules"
                 )
             }
-            Self::DuplicatePatternName => {
-                write!(f, "Another pattern was already declared with this name")
+            Self::DuplicateRuleName => {
+                write!(f, "Another rule was already declared with this name")
             }
-            Self::ExpectedPatternContent => write!(f, "Expected pattern content"),
+            Self::ExpectedRuleContent => write!(f, "Expected rule content"),
             Self::UnclosedGroup { started_at } => write!(
                 f,
                 "Unclosed group starting at line {}, column {}",
@@ -137,14 +137,14 @@ impl fmt::Display for ParserErrorContent {
                 started_at.col() + 1
             ),
             Self::ExpectedPatternSeparatorOrEndOfLine => {
-                write!(f, "Expected pattern separator or end of line")
+                write!(f, "Expected rule separator or end of line")
             }
             Self::ExpectedFollowContinuation => write!(
                 f,
-                "Expected continuation of list of pattern pieces (white space)"
+                "Expected continuation of list of rule patterns (white space)"
             ),
             Self::ExpectedUnionContinuation => {
-                write!(f, "Expected continuation of pattern pieces union (|)")
+                write!(f, "Expected continuation of rule patterns union (|)")
             }
             Self::UnterminatedCstString { started_at } => write!(
                 f,
@@ -152,11 +152,11 @@ impl fmt::Display for ParserErrorContent {
                 started_at.line() + 1,
                 started_at.col() + 1
             ),
-            Self::UnknownPattern => write!(f, "Unknown pattern"),
-            Self::UnknownBuiltinPattern => write!(
+            Self::UnknownRule => write!(f, "Unknown rule"),
+            Self::UnknownBuiltinRule => write!(
                 f,
-                "Unknown builtin pattern. Here is the list of all available ones:{}",
-                BUILTIN_PATTERNS
+                "Unknown builtin rule. Here is the list of all available ones:{}",
+                BUILTIN_RULES
                     .iter()
                     .map(|candidate| format!("\n  * {}", candidate))
                     .collect::<String>()
@@ -167,7 +167,7 @@ impl fmt::Display for ParserErrorContent {
                 started_at.line() + 1,
                 started_at.col() + 1
             ),
-            Self::MissingMainPattern => write!(f, "Main pattern is missing"),
+            Self::MissingMainRule => write!(f, "Main rule is missing"),
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::compiler::*;
-use crate::compiler::utils::{is_builtin_pattern_name, is_external_pattern_name, is_valid_builtin_pattern};
+use crate::compiler::utils::{is_builtin_rule_name, is_external_rule_name, is_valid_builtin_rule_name};
 use quote::__private::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use std::collections::{HashMap, HashSet};
@@ -10,56 +10,56 @@ pub fn gen_rust_str(pst: &PegSyntaxTree) -> String {
 
 pub fn gen_rust_token_stream(pst: &PegSyntaxTree) -> TokenStream {
     let mut state = InternalState {
-        recursive_paths: find_recursive_patterns(pst),
+        recursive_paths: find_recursive_rules(pst),
         cst_string_types: HashMap::new(),
         cst_string_counters: HashMap::new(),
-        used_builtin_patterns: HashSet::new(),
-        pattern_types: HashMap::new(),
-        silent_patterns: list_silent_patterns(pst),
+        used_builtin_rules: HashSet::new(),
+        rule_types: HashMap::new(),
+        silent_rules: list_silent_rules(pst),
         highest_union_used: 0,
     };
 
-    for name in pst.patterns().keys() {
+    for name in pst.rules().keys() {
         if !state.recursive_paths.contains_key(name) {
             state.recursive_paths.insert(name, HashSet::new());
         }
     }
 
-    let mut pattern_types: Vec<_> = pst
-        .patterns()
+    let mut rule_types: Vec<_> = pst
+        .rules()
         .iter()
         .filter_map(|(name, content)| {
             let ident = make_safe_ident(name);
 
-            let pattern_type = gen_rust_pattern_type(&mut state, name, content);
+            let rule_type = gen_rust_rule_type(&mut state, name, content);
 
-            state.pattern_types.insert(*name, pattern_type.clone());
+            state.rule_types.insert(*name, rule_type.clone());
 
-            let pattern_type = pattern_type?;
+            let rule_type = rule_type?;
 
             Some(quote! {
                 #[derive(Debug, Clone)]
                 pub struct #ident {
-                    pub matched: #pattern_type,
+                    pub matched: #rule_type,
                     pub at: usize
                 }
             })
         })
         .collect();
 
-    pattern_types.sort_by_key(|t| t.to_string());
+    rule_types.sort_by_key(|t| t.to_string());
 
-    let mut pattern_types_enum_variants: Vec<_> = pst
-        .patterns()
+    let mut rule_types_enum_variants: Vec<_> = pst
+        .rules()
         .iter()
-        .filter(|(name, _)| !state.silent_patterns.contains(*name))
+        .filter(|(name, _)| !state.silent_rules.contains(*name))
         .map(|(name, _)| {
             let variant = make_safe_ident(name);
             quote! { #variant(super::matched::#variant) }
         })
         .collect();
 
-    pattern_types_enum_variants.sort_by_key(|t| t.to_string());
+    rule_types_enum_variants.sort_by_key(|t| t.to_string());
 
     let mut cst_string_types_expanded: Vec<_> = state.cst_string_types
         .iter()
@@ -73,15 +73,15 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree) -> TokenStream {
 
     cst_string_types_expanded.sort_by_key(|t| t.to_string());
 
-    let mut patterns: Vec<_> = pst
-        .patterns()
+    let mut rules: Vec<_> = pst
+        .rules()
         .iter()
-        .map(|(name, content)| gen_rust_pattern_matcher(&mut state, name, content))
+        .map(|(name, content)| gen_rust_rule_matcher(&mut state, name, content))
         .collect();
 
-    patterns.sort_by_key(|t| t.to_string());    
+    rules.sort_by_key(|t| t.to_string());    
 
-    let mut builtin_patterns: Vec<_> = state.used_builtin_patterns
+    let mut builtin_rules: Vec<_> = state.used_builtin_rules
         .iter()
         .map(|name| {
             let ident = format_ident!("{}", name);
@@ -95,7 +95,7 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree) -> TokenStream {
         })
         .collect();
 
-    builtin_patterns.sort_by_key(|t| t.to_string());
+    builtin_rules.sort_by_key(|t| t.to_string());
 
     let unions = (2..=state.highest_union_used).map(|i| {
         let generics: Vec<_> = (0..i).map(|i| format_ident!("{}", get_enum_variant(i))).collect();
@@ -116,14 +116,14 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree) -> TokenStream {
         #[allow(non_snake_case)]
     };
 
-    let main_pattern = format_ident!("{}", GRAMMAR_ENTRYPOINT_PATTERN);
+    let main_rule = format_ident!("{}", GRAMMAR_ENTRYPOINT_RULE);
 
     quote! {
         pub fn exec(input: &str) -> Result<SuccessData, PegError> {
-            patterns::#main_pattern(input, 0).map(|(data, _)| data)
+            rules::#main_rule(input, 0).map(|(data, _)| data)
         }
 
-        pub type SuccessData = matched::#main_pattern;
+        pub type SuccessData = matched::#main_rule;
 
         #[derive(Debug, Clone)]
         pub struct PegError<'a> {
@@ -134,7 +134,7 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree) -> TokenStream {
         #[derive(Debug, Clone)]
         pub enum PegErrorContent<'a> {
             ExpectedCstString(&'a str),
-            FailedToMatchBuiltinPattern(&'static str),
+            FailedToMatchBuiltinRule(&'static str),
             NoMatchInUnion(Vec<std::rc::Rc<PegError<'a>>>),
             ExpectedEndOfInput
         }
@@ -148,17 +148,17 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree) -> TokenStream {
         #no_linting
         pub mod matched {
             #[derive(Debug, Clone)]
-            pub enum MatchedPattern {
-                #(#pattern_types_enum_variants),*
+            pub enum MatchedRule {
+                #(#rule_types_enum_variants),*
             }
 
-            #(#pattern_types)*
-            #(#builtin_patterns)*
+            #(#rule_types)*
+            #(#builtin_rules)*
         }
 
         #no_linting
-        pub mod patterns {
-            #(#patterns)*
+        pub mod rules {
+            #(#rules)*
         }
 
         #no_linting
@@ -172,29 +172,29 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree) -> TokenStream {
     }
 }
 
-pub fn find_recursive_patterns<'a>(pst: &'a PegSyntaxTree) -> HashMap<&'a str, HashSet<&'a str>> {
+pub fn find_recursive_rules<'a>(pst: &'a PegSyntaxTree) -> HashMap<&'a str, HashSet<&'a str>> {
     let mut rec = HashMap::new();
-    find_recursive_patterns_in(pst, &mut vec![], &mut rec, GRAMMAR_ENTRYPOINT_PATTERN);
+    find_recursive_rules_in(pst, &mut vec![], &mut rec, GRAMMAR_ENTRYPOINT_RULE);
     rec
 }
 
-pub fn find_recursive_patterns_in<'a>(pst: &'a PegSyntaxTree, path: &mut Vec<&'a str>, treated_recursives: &mut HashMap<&'a str, HashSet<&'a str>>, pattern_name: &'a str) {
-    if is_valid_builtin_pattern(pattern_name) || is_external_pattern_name(pattern_name) {
+pub fn find_recursive_rules_in<'a>(pst: &'a PegSyntaxTree, path: &mut Vec<&'a str>, treated_recursives: &mut HashMap<&'a str, HashSet<&'a str>>, rule_name: &'a str) {
+    if is_valid_builtin_rule_name(rule_name) || is_external_rule_name(rule_name) {
         return
     }
 
-    path.push(pattern_name);
+    path.push(rule_name);
 
-    let pattern = pst.patterns().get(pattern_name).unwrap();
-    build_patterns_list(pst, path, treated_recursives, pattern.inner_piece().value());
+    let rule = pst.rules().get(rule_name).unwrap();
+    build_rules_list(pst, path, treated_recursives, rule.pattern().value());
 
     path.pop();
 }
 
-pub fn build_patterns_list<'a>(pst: &'a PegSyntaxTree, path: &mut Vec<&'a str>, treated_recursives: &mut HashMap<&'a str, HashSet<&'a str>>, piece_value: &'a PatternPieceValue) {
-    match piece_value {
-        PatternPieceValue::CstString(_) => {}
-        PatternPieceValue::Pattern(name) => {
+pub fn build_rules_list<'a>(pst: &'a PegSyntaxTree, path: &mut Vec<&'a str>, treated_recursives: &mut HashMap<&'a str, HashSet<&'a str>>, pattern_value: &'a RulePatternValue) {
+    match pattern_value {
+        RulePatternValue::CstString(_) => {}
+        RulePatternValue::Rule(name) => {
             if path.contains(name) {
                 let parent_name = path[path.len() - 1];
 
@@ -206,95 +206,95 @@ pub fn build_patterns_list<'a>(pst: &'a PegSyntaxTree, path: &mut Vec<&'a str>, 
                     treated_recursives.insert(parent_name, list);
                 }
             } else {
-                find_recursive_patterns_in(pst, path, treated_recursives, name);
+                find_recursive_rules_in(pst, path, treated_recursives, name);
             }
         }
-        PatternPieceValue::Group(piece) => build_patterns_list(pst, path, treated_recursives, piece.value()),
-        PatternPieceValue::Suite(pieces) | PatternPieceValue::Union(pieces) => {
-            for piece in pieces {
-                build_patterns_list(pst, path, treated_recursives, piece.value());
+        RulePatternValue::Group(pattern) => build_rules_list(pst, path, treated_recursives, pattern.value()),
+        RulePatternValue::Suite(patterns) | RulePatternValue::Union(patterns) => {
+            for pattern in patterns {
+                build_rules_list(pst, path, treated_recursives, pattern.value());
             }
         }
     }
 }
 
-pub fn list_silent_patterns<'a>(pst: &'a PegSyntaxTree) -> HashSet<&'a str> {
-    let mut silent_patterns = HashSet::new();
+pub fn list_silent_rules<'a>(pst: &'a PegSyntaxTree) -> HashSet<&'a str> {
+    let mut silent_rules = HashSet::new();
     
-    for name in pst.patterns().keys() {
-        check_pattern_silence(pst, &mut silent_patterns, name);
+    for name in pst.rules().keys() {
+        check_rule_silence(pst, &mut silent_rules, name);
     }
 
-    silent_patterns
+    silent_rules
 }
 
-pub fn check_pattern_silence<'a>(pst: &'a PegSyntaxTree, silent_patterns: &mut HashSet<&'a str>, name: &'a str) -> bool {
-    if silent_patterns.contains(&name) {
+pub fn check_rule_silence<'a>(pst: &'a PegSyntaxTree, silent_rules: &mut HashSet<&'a str>, name: &'a str) -> bool {
+    if silent_rules.contains(&name) {
         return true;
     }
     
-    if is_builtin_pattern_name(name) {
+    if is_builtin_rule_name(name) {
         false
-    } else if is_silent_piece(pst, silent_patterns, pst.patterns()[name].inner_piece()) {
-        silent_patterns.insert(name);
+    } else if is_silent_pattern(pst, silent_rules, pst.rules()[name].pattern()) {
+        silent_rules.insert(name);
         true
     } else {
         false
     }
 }
 
-pub fn is_silent_piece<'a>(pst: &'a PegSyntaxTree, silent_patterns: &mut HashSet<&'a str>, piece: &'a PatternPiece) -> bool {
-    if piece.is_silent() {
+pub fn is_silent_pattern<'a>(pst: &'a PegSyntaxTree, silent_rules: &mut HashSet<&'a str>, pattern: &'a Pattern) -> bool {
+    if pattern.is_silent() {
         return true;
     }
 
-    match piece.value() {
-        PatternPieceValue::CstString(_) => false,
-        PatternPieceValue::Pattern(name) => check_pattern_silence(pst, silent_patterns, name),
-        PatternPieceValue::Group(group) => is_silent_piece(pst, silent_patterns, group),
-        PatternPieceValue::Suite(pieces) => pieces.iter().all(|piece| is_silent_piece(pst, silent_patterns, piece)),
-        PatternPieceValue::Union(pieces) => pieces.iter().all(|piece| is_silent_piece(pst, silent_patterns, piece))
+    match pattern.value() {
+        RulePatternValue::CstString(_) => false,
+        RulePatternValue::Rule(name) => check_rule_silence(pst, silent_rules, name),
+        RulePatternValue::Group(group) => is_silent_pattern(pst, silent_rules, group),
+        RulePatternValue::Suite(patterns) => patterns.iter().all(|pattern| is_silent_pattern(pst, silent_rules, pattern)),
+        RulePatternValue::Union(patterns) => patterns.iter().all(|pattern| is_silent_pattern(pst, silent_rules, pattern))
     }
 }
 
-pub fn gen_rust_pattern_type<'a>(
+pub fn gen_rust_rule_type<'a>(
     state: &mut InternalState<'a>,
     visiting: &'a str,
-    pattern: &'a PatternContent,
+    rule: &'a RuleContent,
 ) -> Option<TokenStream> {
-    gen_rust_pattern_piece_type(state, visiting, pattern.inner_piece())
+    gen_rust_rule_pattern_type(state, visiting, rule.pattern())
 }
 
-pub fn gen_rust_pattern_piece_type<'a>(
+pub fn gen_rust_rule_pattern_type<'a>(
     state: &mut InternalState<'a>,
     visiting: &'a str,
-    piece: &'a PatternPiece,
+    pattern: &'a Pattern,
 ) -> Option<TokenStream> {
-    if piece.is_silent() {
+    if pattern.is_silent() {
         return None;
     }
 
-    let piece_type =
-        gen_rust_pattern_piece_value_type(state,  visiting, piece.value())?;
+    let pattern_type =
+        gen_rust_rule_pattern_value_type(state,  visiting, pattern.value())?;
 
-    match piece.repetition() {
-        None => Some(piece_type),
+    match pattern.repetition() {
+        None => Some(pattern_type),
         Some(rep) => match rep {
             PatternRepetition::Any | PatternRepetition::OneOrMore => {
-                Some(quote! { Vec<#piece_type> })
+                Some(quote! { Vec<#pattern_type> })
             }
-            PatternRepetition::Optional => Some(quote! { Option<#piece_type> }),
+            PatternRepetition::Optional => Some(quote! { Option<#pattern_type> }),
         },
     }
 }
 
-pub fn gen_rust_pattern_piece_value_type<'a>(
+pub fn gen_rust_rule_pattern_value_type<'a>(
     state: &mut InternalState<'a>,
     visiting: &'a str,
-    value: &'a PatternPieceValue,
+    value: &'a RulePatternValue,
 ) -> Option<TokenStream> {
     match value {
-        PatternPieceValue::CstString(string) => {
+        RulePatternValue::CstString(string) => {
             Some(if let Some(ident) = state.cst_string_types.get(string) {
                 quote! { super::strings::#ident }
             } else {
@@ -303,12 +303,12 @@ pub fn gen_rust_pattern_piece_value_type<'a>(
                 quote! { super::strings::#ident }
             })
         }
-        PatternPieceValue::Pattern(name) => {
+        RulePatternValue::Rule(name) => {
             let ident = make_safe_ident(name);
 
-            if is_builtin_pattern_name(name) {
+            if is_builtin_rule_name(name) {
                 Some(quote! { super::matched::#ident })
-            } else if state.silent_patterns.contains(name) {
+            } else if state.silent_rules.contains(name) {
                 None
             } else if state.recursive_paths[visiting].contains(name) {
                 Some(quote! { std::rc::Rc<super::matched::#ident> })
@@ -316,14 +316,14 @@ pub fn gen_rust_pattern_piece_value_type<'a>(
                 Some(quote! { super::matched::#ident })
             }
         }
-        PatternPieceValue::Group(inner) => {
-            gen_rust_pattern_piece_type(state, visiting, inner.as_ref())
+        RulePatternValue::Group(inner) => {
+            gen_rust_rule_pattern_type(state, visiting, inner.as_ref())
         }
-        PatternPieceValue::Suite(pieces) => {
-            let types: Vec<_> = pieces
+        RulePatternValue::Suite(patterns) => {
+            let types: Vec<_> = patterns
                 .iter()
-                .map(|piece| gen_rust_pattern_piece_type(state, visiting, piece))
-                .filter_map(|piece| piece)
+                .map(|pattern| gen_rust_rule_pattern_type(state, visiting, pattern))
+                .filter_map(|pattern| pattern)
                 .collect();
 
             if types.is_empty() {
@@ -334,24 +334,24 @@ pub fn gen_rust_pattern_piece_value_type<'a>(
                 Some(quote! { (#(#types),*) })
             }
         }
-        PatternPieceValue::Union(pieces) => {
-            let types: Vec<_> = pieces
+        RulePatternValue::Union(patterns) => {
+            let types: Vec<_> = patterns
                 .iter()
-                .map(|piece| {
-                    gen_rust_pattern_piece_type(state, visiting,piece)
+                .map(|pattern| {
+                    gen_rust_rule_pattern_type(state, visiting,pattern)
                 })
-                .filter_map(|piece| piece)
+                .filter_map(|pattern| pattern)
                 .collect();
 
-            let variants_len = pieces.len();
+            let variants_len = patterns.len();
 
             let union_type = format_ident!("Sw{}", variants_len);
 
-            if pieces.is_empty() {
+            if patterns.is_empty() {
                 None
             } else {
-                if pieces.len() > state.highest_union_used {
-                    state.highest_union_used = pieces.len();
+                if patterns.len() > state.highest_union_used {
+                    state.highest_union_used = patterns.len();
                 }
 
                 Some(quote! { super::unions::#union_type<#(#types),*> })
@@ -470,21 +470,21 @@ pub static RUST_RESERVED_KEYWORDS: &[&str] = &[
     "override", "priv", "typeof", "unsized", "virtual", "yield", "try", "union", "static", "dyn",
 ];
 
-pub fn gen_rust_pattern_matcher<'a>(
+pub fn gen_rust_rule_matcher<'a>(
     state: &mut InternalState<'a>,
     name: &'a str,
-    pattern: &'a PatternContent,
+    rule: &'a RuleContent,
 ) -> TokenStream {
     let ident = make_safe_ident(name);
 
-    let piece_matcher = gen_rust_pattern_piece_matcher(state, name, pattern.inner_piece());
+    let pattern_matcher = gen_rust_rule_pattern_matcher(state, name, rule.pattern());
 
-    let body = if state.silent_patterns.contains(name) /*|| state.pattern_types[name].is_none()*/ {
-        quote! { #piece_matcher }
-    } else if name != GRAMMAR_ENTRYPOINT_PATTERN {
-        quote! { #piece_matcher.and_then(|(matched, consumed)| Ok((super::matched::#ident { matched, at: offset }, consumed))) }
+    let body = if state.silent_rules.contains(name) /*|| state.rule_types[name].is_none()*/ {
+        quote! { #pattern_matcher }
+    } else if name != GRAMMAR_ENTRYPOINT_RULE {
+        quote! { #pattern_matcher.and_then(|(matched, consumed)| Ok((super::matched::#ident { matched, at: offset }, consumed))) }
     } else {
-        quote! { #piece_matcher.and_then(|(matched, consumed)| {
+        quote! { #pattern_matcher.and_then(|(matched, consumed)| {
             if input.len() > consumed {
                 Err(super::PegErrorContent::ExpectedEndOfInput.at(consumed))
             } else {
@@ -493,7 +493,7 @@ pub fn gen_rust_pattern_matcher<'a>(
         }) }
     };
 
-    let ret_type = if state.silent_patterns.contains(name) {
+    let ret_type = if state.silent_rules.contains(name) {
         quote! { () }
     } else {
         quote! { super::matched::#ident }
@@ -506,27 +506,27 @@ pub fn gen_rust_pattern_matcher<'a>(
     }
 }
 
-pub fn gen_rust_pattern_piece_matcher<'a>(
+pub fn gen_rust_rule_pattern_matcher<'a>(
     state: &mut InternalState<'a>,
     visiting: &'a str,
-    piece: &'a PatternPiece,
+    pattern: &'a Pattern,
 ) -> TokenStream {
-    let matcher = gen_rust_pattern_piece_value_matcher(state, visiting, piece.value());
+    let matcher = gen_rust_rule_pattern_value_matcher(state, visiting, pattern.value());
 
-    let matcher = if piece.is_silent() {
+    let matcher = if pattern.is_silent() {
         quote! { #matcher.map(|(_, consumed)| ((), consumed)) }
     } else {
         quote! { #matcher }
     };
 
-    match piece.repetition() {
+    match pattern.repetition() {
         None => quote! { #matcher },
         Some(rep) => match rep {
             PatternRepetition::Any => {
-                let push_strategy = if piece.is_silent() {
+                let push_strategy = if pattern.is_silent() {
                     quote! { }
                 } else {
-                    quote! { out.push(sub_data); }
+                    quote! { out.push(piece_data); }
                 };
 
                 quote! {
@@ -539,10 +539,10 @@ pub fn gen_rust_pattern_piece_matcher<'a>(
                             let result = #matcher;
 
                             match result {
-                                Ok((sub_data, sub_consumed)) => {
+                                Ok((piece_data, piece_consumed)) => {
                                     #push_strategy
-                                    consumed += sub_consumed;
-                                    input = &input[sub_consumed..];
+                                    consumed += piece_consumed;
+                                    input = &input[piece_consumed..];
                                 },
 
                                 Err(_) => break Ok((out, consumed))
@@ -553,10 +553,10 @@ pub fn gen_rust_pattern_piece_matcher<'a>(
             },
 
             PatternRepetition::OneOrMore => {
-                let push_strategy = if piece.is_silent() {
+                let push_strategy = if pattern.is_silent() {
                     quote! { }
                 } else {
-                    quote! { out.push(sub_data); }
+                    quote! { out.push(piece_data); }
                 };
 
                 quote! {
@@ -570,10 +570,10 @@ pub fn gen_rust_pattern_piece_matcher<'a>(
                             let result = #matcher;
 
                             match result {
-                                Ok((sub_data, sub_consumed)) => {
+                                Ok((piece_data, piece_consumed)) => {
                                     #push_strategy
-                                    input = &input[sub_consumed..];
-                                    consumed += sub_consumed;
+                                    input = &input[piece_consumed..];
+                                    consumed += piece_consumed;
                                     one_success = true;
                                 },
 
@@ -602,17 +602,17 @@ pub fn gen_rust_pattern_piece_matcher<'a>(
     }
 }
 
-pub fn gen_rust_pattern_piece_value_matcher<'a>(
+pub fn gen_rust_rule_pattern_value_matcher<'a>(
     state: &mut InternalState<'a>,
     visiting: &'a str,
-    value: &'a PatternPieceValue,
+    value: &'a RulePatternValue,
 ) -> TokenStream {
     match value {
-        PatternPieceValue::CstString(string) => {
+        RulePatternValue::CstString(string) => {
             let str_type = match state.cst_string_types.get(string) {
                 Some(str_type) => quote! { super::strings::#str_type },
 
-                // Happens when the parent piece is silent
+                // Happens when the parent pattern is silent
                 None => quote! { () }
             };
 
@@ -626,9 +626,9 @@ pub fn gen_rust_pattern_piece_value_matcher<'a>(
                 }
             }
         }
-        PatternPieceValue::Pattern(name) => {
-            if is_builtin_pattern_name(name) {
-                state.used_builtin_patterns.insert(name);
+        RulePatternValue::Rule(name) => {
+            if is_builtin_rule_name(name) {
+                state.used_builtin_rules.insert(name);
                 gen_builtin_matcher(name)
             } else {
                 let ident = make_safe_ident(name);
@@ -641,19 +641,19 @@ pub fn gen_rust_pattern_piece_value_matcher<'a>(
                 }
             }
         }
-        PatternPieceValue::Group(piece) => {
-            gen_rust_pattern_piece_matcher(state, visiting, piece.as_ref())
+        RulePatternValue::Group(pattern) => {
+            gen_rust_rule_pattern_matcher(state, visiting, pattern.as_ref())
         }
-        PatternPieceValue::Suite(pieces) => {
+        RulePatternValue::Suite(patterns) => {
             let mut used = vec![];
 
-            let create_storage: Vec<_> = pieces
+            let create_storage: Vec<_> = patterns
                 .iter()
                 .enumerate()
-                .map(|(i, piece)| {
-                    let matcher = gen_rust_pattern_piece_matcher(state, visiting, piece);
+                .map(|(i, pattern)| {
+                    let matcher = gen_rust_rule_pattern_matcher(state, visiting, pattern);
                     
-                    let is_silent = piece.is_silent() || matches!(piece.value(), PatternPieceValue::Pattern(name) if state.silent_patterns.contains(name));
+                    let is_silent = pattern.is_silent() || matches!(pattern.value(), RulePatternValue::Rule(name) if state.silent_rules.contains(name));
 
                     let mut storage = format_ident!("p{}", i);
 
@@ -664,14 +664,14 @@ pub fn gen_rust_pattern_piece_value_matcher<'a>(
                     }
 
                     quote! {
-                        let (#storage, sub_consumed) = match #matcher {
+                        let (#storage, piece_consumed) = match #matcher {
                             Ok(result) => result,
                             Err(err) => break Err(err)
                         };
                         
-                        offset += sub_consumed;
-                        consumed += sub_consumed;
-                        input = &input[sub_consumed..];
+                        offset += piece_consumed;
+                        consumed += piece_consumed;
+                        input = &input[piece_consumed..];
                     }
                 })
                 .collect();
@@ -699,14 +699,14 @@ pub fn gen_rust_pattern_piece_value_matcher<'a>(
                 }
             }
         }
-        PatternPieceValue::Union(pieces) => {
-            let union_ident = format_ident!("Sw{}", pieces.len());
+        RulePatternValue::Union(patterns) => {
+            let union_ident = format_ident!("Sw{}", patterns.len());
 
-            let tries: Vec<_> = pieces
+            let tries: Vec<_> = patterns
                 .iter()
                 .enumerate()
-                .map(|(i, piece)| {
-                    let matcher = gen_rust_pattern_piece_matcher(state, visiting, piece);
+                .map(|(i, pattern)| {
+                    let matcher = gen_rust_rule_pattern_matcher(state, visiting, pattern);
                     
                     let union_variant = format_ident!("{}", get_enum_variant(i));
 
@@ -775,7 +775,7 @@ pub fn gen_builtin_matcher(name: &str) -> TokenStream {
 
     quote! {
         match input.chars().next().filter(|nc| #cond) {
-            None => Err(super::PegErrorContent::FailedToMatchBuiltinPattern(#name).at(offset)),
+            None => Err(super::PegErrorContent::FailedToMatchBuiltinRule(#name).at(offset)),
             Some(c) => Ok((super::matched::#name_ident { matched: c, at: offset }, 1))
         }
     }
@@ -802,8 +802,8 @@ pub struct InternalState<'a> {
     recursive_paths: HashMap<&'a str, HashSet<&'a str>>,
     cst_string_types: HashMap<&'a str, TokenStream>,
     cst_string_counters: HashMap<&'a str, usize>,
-    used_builtin_patterns: HashSet<&'a str>,
-    pattern_types: HashMap<&'a str, Option<TokenStream>>,
-    silent_patterns: HashSet<&'a str>,
+    used_builtin_rules: HashSet<&'a str>,
+    rule_types: HashMap<&'a str, Option<TokenStream>>,
+    silent_rules: HashSet<&'a str>,
     highest_union_used: usize,
 }
