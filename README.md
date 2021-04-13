@@ -56,9 +56,11 @@ fn main() {
 }
 ```
 
-The success type returned by `::exec` is generated depending on the input grammar.
+The main advantage of using parser generators is the better performances (~ 10 times than the optimized runtime engine), as well as the easier use and safety: you will directly extract the informations from your grammar without having to check unreachable statements. This also means that updating your grammar will instantly show what parts of your code needs to be updated.
 
-If your IDE doesn't expand procedural macros and doesn't provide you informations about the generated types, you can take a look at the result's content by using the `dbg!()` macro (or `format!("{:#?}")` for formatting purposes).
+The generated types are optimized to be as lightweight and easy-to-use as possible ; the only corner case being the use of the `Rc` type to store informations in recursive patterns.
+
+The success type returned by `::exec` is generated depending on the input grammar ; if your IDE doesn't expand procedural macros and doesn't provide you informations about the generated types, you can take a look at the result's content by using the `dbg!()` macro (or `format!("{:#?}")` for formatting purposes).
 
 All of the generated types implement the `Debug` and `Clone` traits.
 
