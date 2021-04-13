@@ -30,6 +30,8 @@ pub fn add_base_err_loc(base_line: usize, base_col: usize, err: ParserError) -> 
             | ParserErrorContent::UnknownRule
             | ParserErrorContent::UnknownBuiltinRule
             | ParserErrorContent::UnusedRule
+            | ParserErrorContent::EmptyConstantString
+            | ParserErrorContent::PotentiallyEmptyUnionMember
             | ParserErrorContent::UnterminatedMultiLineComment { started_at: _ } // As this one is global, it does not adaptation
             | ParserErrorContent::IllegalSymbol(_) => err.content,
         },
@@ -112,6 +114,8 @@ pub enum ParserErrorContent {
     UnterminatedMultiLineComment { started_at: ParserLoc },
     MissingMainRule,
     UnusedRule,
+    EmptyConstantString,
+    PotentiallyEmptyUnionMember,
 }
 
 impl fmt::Display for ParserErrorContent {
@@ -171,6 +175,13 @@ impl fmt::Display for ParserErrorContent {
             ),
             Self::MissingMainRule => write!(f, "Main rule is missing"),
             Self::UnusedRule => write!(f, "This rule is declared but never used"),
+            Self::EmptyConstantString => write!(
+                f,
+                "Empty constant strings are forbidden as they match nothing"
+            ),
+            Self::PotentiallyEmptyUnionMember => {
+                write!(f, "Detected potentially-empty union member")
+            }
         }
     }
 }

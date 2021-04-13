@@ -32,7 +32,18 @@ pub fn cst_string(input: &str) -> Result<Option<(&str, usize)>, ParserError> {
         }
     }
 
-    Ok(Some((&input[1..col], col + 1)))
+    let cst_str = &input[1..col];
+
+    if cst_str.is_empty() {
+        Err(ParserError::new(
+            ParserLoc::new(0, 0),
+            2,
+            ParserErrorContent::EmptyConstantString,
+            None,
+        ))
+    } else {
+        Ok(Some((cst_str, col + 1)))
+    }
 }
 
 /// Try to match a rule's name

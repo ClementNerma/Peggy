@@ -203,7 +203,6 @@ pub fn parse_rule_pattern(input: &str, base_loc: ParserLoc) -> Result<Pattern, P
 
     // Remove the first pattern's content from the remaining input
     let input = &input[pattern_len..];
-    let mut column = pattern_len;
 
     // Make a global pattern
     // This will contain everything the rule's content is made of
@@ -215,114 +214,7 @@ pub fn parse_rule_pattern(input: &str, base_loc: ParserLoc) -> Result<Pattern, P
         // If the parser stopped because of a continuation separator (whitespace) or an union separator (|),
         // all items of the follow/union should be collected at once
         PatternParserStoppedAt::ContinuationSep | PatternParserStoppedAt::UnionSep => {
-            // Create an union child (see below)
-            fn create_union_child(mut patterns: Vec<Pattern>) -> Pattern {
-                assert_ne!(patterns.len(), 0);
-
-                if patterns.len() == 1 {
-                    // Avoid making a `RulePatternValue::Suite` wrapper for a single pattern
-                    patterns.into_iter().next().unwrap()
-                } else {
-                    let ParserLoc { line, col } = patterns[0].relative_loc;
-
-                    for pattern in patterns.iter_mut() {
-                        pattern.relative_loc = sub_parser_loc(line, col, pattern.relative_loc);
-                    }
-
-                    Pattern {
-                        relative_loc: patterns[0].relative_loc,
-                        repetition: None,
-                        is_silent: false,
-                        is_atomic: false,
-                        value: RulePatternValue::Suite(patterns),
-                    }
-                }
-            }
-
-            // Get the first patterns
-            // The `patterns` variable contains the parsed patterns
-            // The `unions` variable contains each member of the pending union. If the whole rule's content is not an union, this will remain empty.
-            // When an union separator is detected, the content of `patterns` is moved to `unions` in order to separate each member of the union.
-            let (mut patterns, mut unions) = if stopped_at == PatternParserStoppedAt::UnionSep {
-                (vec![], vec![create_union_child(vec![first_pattern])])
-            } else {
-                (vec![first_pattern], vec![])
-            };
-
-            // Local modifyable input
-            let mut input = input;
-
-            loop {
-                // Parse the next pattern
-                let (next_pattern, next_pattern_len, next_stopped_at) = parse_sub_pattern(input)
-                    .map_err(|err| add_base_err_loc(base_loc.line, base_loc.col + column, err))?;
-
-                // Push it to the list of pending patterns
-                patterns.push(Pattern {
-                    relative_loc: add_parser_loc(0, column, next_pattern.relative_loc),
-                    ..next_pattern
-                });
-
-                // Remove it from the remaining input
-                input = &input[next_pattern_len..];
-
-                // Trim the remaining input
-                let trimmed = count_start_whitespaces(input);
-                input = &input[trimmed..];
-
-                // Update the column number
-                column += next_pattern_len + trimmed;
-
-                // Check the reason why the parser stopped here
-                match next_stopped_at {
-                    // If it stopped because it was the end of the input, it's time to return the whole collected data
-                    PatternParserStoppedAt::End => {
-                        break Pattern {
-                            relative_loc: ParserLoc { line: 0, col: 0 },
-                            repetition: None,
-                            is_silent: false,
-                            is_atomic: false,
-                            // If the parser stopped on the first pattern because it encountered an union separator, the remaining content
-                            // should be put inside an union.
-                            // Otherwise, and if no union separator was found during the parsing on the whole rule's content,
-                            // a simple suite can be made from the patterns.
-                            value: if stopped_at != PatternParserStoppedAt::UnionSep
-                                && unions.is_empty()
-                            {
-                                // Avoid making a whole suite wrapper for a single pattern
-                                if patterns.len() == 1 {
-                                    break patterns.into_iter().next().unwrap();
-                                } else {
-                                    RulePatternValue::Suite(patterns)
-                                }
-                            } else {
-                                // Otherwise, terminate the union
-                                if !patterns.is_empty() {
-                                    unions.push(create_union_child(patterns));
-                                }
-
-                                assert!(unions.len() >= 2);
-
-                                RulePatternValue::Union(unions)
-                            },
-                        };
-                    }
-
-                    // If a continuation separator (whitespace) was encountered, just go to the next pattern (= do nothing for now)
-                    PatternParserStoppedAt::ContinuationSep => {}
-
-                    // If an union separator (|) was encountered...
-                    PatternParserStoppedAt::UnionSep => {
-                        // The whole pattern is now considered as an union, given that unions have precedence over everything else
-
-                        // Put the current patterns in the union's members list
-                        unions.push(create_union_child(patterns));
-
-                        // Prepare for the next union's member (if any)
-                        patterns = vec![];
-                    }
-                }
-            }
+            parse_pattern_suite_or_union(input, base_loc, pattern_len, first_pattern, stopped_at)?
         }
     };
 
@@ -336,6 +228,99 @@ pub fn parse_rule_pattern(input: &str, base_loc: ParserLoc) -> Result<Pattern, P
     Ok(global_pattern)
 }
 
+/// Parse a pattern's suite or union
+pub fn parse_pattern_suite_or_union<'a>(
+    input: &'a str,
+    base_loc: ParserLoc,
+    mut column: usize,
+    first_pattern: Pattern<'a>,
+    stopped_at: PatternParserStoppedAt,
+) -> Result<Pattern<'a>, ParserError> {
+    // Get the first patterns
+    // The `patterns` variable contains the parsed patterns
+    // The `unions` variable contains each member of the pending union. If the whole rule's content is not an union, this will remain empty.
+    // When an union separator is detected, the content of `patterns` is moved to `unions` in order to separate each member of the union.
+    let (mut patterns, mut unions) = if stopped_at == PatternParserStoppedAt::UnionSep {
+        (vec![], vec![create_union_child(vec![first_pattern])])
+    } else {
+        (vec![first_pattern], vec![])
+    };
+
+    // Local modifyable input
+    let mut input = input;
+
+    loop {
+        // Parse the next pattern
+        let (next_pattern, next_pattern_len, next_stopped_at) = parse_sub_pattern(input)
+            .map_err(|err| add_base_err_loc(base_loc.line, base_loc.col + column, err))?;
+
+        // Push it to the list of pending patterns
+        patterns.push(Pattern {
+            relative_loc: add_parser_loc(0, column, next_pattern.relative_loc),
+            ..next_pattern
+        });
+
+        // Remove it from the remaining input
+        input = &input[next_pattern_len..];
+
+        // Trim the remaining input
+        let trimmed = count_start_whitespaces(input);
+        input = &input[trimmed..];
+
+        // Update the column number
+        column += next_pattern_len + trimmed;
+
+        // Check the reason why the parser stopped here
+        match next_stopped_at {
+            // If it stopped because it was the end of the input, it's time to return the whole collected data
+            PatternParserStoppedAt::End => {
+                break Ok(Pattern {
+                    relative_loc: ParserLoc { line: 0, col: 0 },
+                    decl_length: column + 1,
+                    repetition: None,
+                    is_silent: false,
+                    is_atomic: false,
+                    // If the parser stopped on the first pattern because it encountered an union separator, the remaining content
+                    // should be put inside an union.
+                    // Otherwise, and if no union separator was found during the parsing on the whole rule's content,
+                    // a simple suite can be made from the patterns.
+                    value: if stopped_at != PatternParserStoppedAt::UnionSep && unions.is_empty() {
+                        // Avoid making a whole suite wrapper for a single pattern
+                        if patterns.len() == 1 {
+                            break Ok(patterns.into_iter().next().unwrap());
+                        } else {
+                            RulePatternValue::Suite(patterns)
+                        }
+                    } else {
+                        // Otherwise, terminate the union
+                        if !patterns.is_empty() {
+                            unions.push(create_union_child(patterns));
+                        }
+
+                        assert!(unions.len() >= 2);
+
+                        RulePatternValue::Union(unions)
+                    },
+                });
+            }
+
+            // If a continuation separator (whitespace) was encountered, just go to the next pattern (= do nothing for now)
+            PatternParserStoppedAt::ContinuationSep => {}
+
+            // If an union separator (|) was encountered...
+            PatternParserStoppedAt::UnionSep => {
+                // The whole pattern is now considered as an union, given that unions have precedence over everything else
+
+                // Put the current patterns in the union's members list
+                unions.push(create_union_child(patterns));
+
+                // Prepare for the next union's member (if any)
+                patterns = vec![];
+            }
+        }
+    }
+}
+
 /// Parse a sub-pattern
 /// The success return value is made of the parsed pattern, the consumed input length, and the reason why the parser stopped at this specific symbol
 pub fn parse_sub_pattern(
@@ -345,8 +330,11 @@ pub fn parse_sub_pattern(
     let (input, trimmed) = trim_start_and_count(input);
 
     // Parse the first piece (note that the entire pattern may be made of a single one)
-    let (first_pattern, first_pattern_len) =
+    let (mut first_pattern, first_pattern_len) =
         parse_pattern_piece(input).map_err(|err| add_base_err_loc(0, trimmed, err))?;
+
+    // Update location
+    first_pattern.relative_loc = add_parser_loc(0, trimmed, first_pattern.relative_loc);
 
     // Remove it from the remaining input
     let input = &input[first_pattern_len..];
@@ -472,16 +460,20 @@ fn parse_pattern_piece(input: &str) -> Result<(Pattern, usize), ParserError> {
     // Get the piece's repetition model (* + ?) following it
     let repetition = input.chars().nth(len).and_then(PatternRepetition::parse);
 
+    // Compute the consumed size
+    let consumed = trimmed + trimmed2 + len + if repetition.is_some() { 1 } else { 0 };
+
     // Success!
     Ok((
         Pattern {
             relative_loc: ParserLoc { line: 0, col: 0 },
+            decl_length: consumed,
             value,
             is_silent,
             is_atomic,
             repetition,
         },
-        trimmed + trimmed2 + len + if repetition.is_some() { 1 } else { 0 },
+        consumed,
     ))
 }
 
@@ -504,6 +496,31 @@ pub fn parse_rule_pattern_atomicity(input: &str) -> (usize, bool) {
         (2, true)
     } else {
         (0, false)
+    }
+}
+
+// Create an union child (see usage)
+fn create_union_child(mut patterns: Vec<Pattern>) -> Pattern {
+    assert_ne!(patterns.len(), 0);
+
+    if patterns.len() == 1 {
+        // Avoid making a `RulePatternValue::Suite` wrapper for a single pattern
+        patterns.into_iter().next().unwrap()
+    } else {
+        let ParserLoc { line, col } = patterns[0].relative_loc;
+
+        for pattern in patterns.iter_mut() {
+            pattern.relative_loc = sub_parser_loc(line, col, pattern.relative_loc);
+        }
+
+        Pattern {
+            relative_loc: patterns[0].relative_loc,
+            decl_length: patterns.iter().fold(0, |acc, pat| acc + pat.decl_length),
+            repetition: None,
+            is_silent: false,
+            is_atomic: false,
+            value: RulePatternValue::Suite(patterns),
+        }
     }
 }
 
@@ -566,6 +583,9 @@ pub struct Pattern<'a> {
     /// Pattern's beginning, relative to its parent
     relative_loc: ParserLoc,
 
+    /// Length of the pattern
+    decl_length: usize,
+
     /// Repetition model
     repetition: Option<PatternRepetition>,
 
@@ -583,6 +603,11 @@ impl<'a> Pattern<'a> {
     /// Get the pattern's beginning, relatively to its parent
     pub fn relative_loc(&self) -> ParserLoc {
         self.relative_loc
+    }
+
+    /// Get the length of the pattern, which is the size of its declaration in the input grammar
+    pub fn decl_length(&self) -> usize {
+        self.decl_length
     }
 
     /// Get the pattern's repetition model
