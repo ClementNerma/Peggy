@@ -311,10 +311,10 @@ pub fn gen_builtin_matcher(name: &str) -> TokenStream {
     let cond = match name {
         "B_ANY" => quote! { true },
 
-        "B_NEWLINE_CR" => quote! { nc == '\r' },
-        "B_NEWLINE_LF" => quote! { nc == '\n' },
+        "B_NEWLINE_CR" => quote! { *nc == '\r' },
+        "B_NEWLINE_LF" => quote! { *nc == '\n' },
 
-        "B_DOUBLE_QUOTE" => quote! { nc == '"' },
+        "B_DOUBLE_QUOTE" => quote! { *nc == '"' },
 
         "B_ASCII" => quote! { nc.is_ascii() },
         "B_ASCII_ALPHABETIC" => quote! { nc.is_ascii_alphabetic() },
