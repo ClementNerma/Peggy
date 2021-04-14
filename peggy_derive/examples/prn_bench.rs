@@ -15,14 +15,44 @@ static ITERATIONS: usize = 100_000;
 
 fn main() {
     println!("Expression: {}", TEST_INPUT);
+    println!("Iterations: {}", ITERATIONS);
+
+    // Measure performance
+    let mut iteration = 0;
+    let now = Instant::now();
 
     // Evaluate the expression
-    let success = prn_grammar::exec(TEST_INPUT).unwrap_or_else(|err| {
-        panic!(
-            "Failed to match PRN grammar against a PRN expression:\n{}",
-            err
-        );
-    });
+    let success = loop {
+        iteration += 1;
+
+        let result = prn_grammar::exec(TEST_INPUT).unwrap_or_else(|err| {
+            panic!(
+                "Failed to match PRN grammar against a PRN expression:\n{}",
+                err
+            );
+        });
+
+        if iteration == ITERATIONS {
+            break result;
+        }
+    };
+
+    // Get elapsed time
+    let elapsed = now.elapsed();
+
+    // Get average execution time
+    let average_time_ms = elapsed.as_micros() as f64 / ITERATIONS as f64;
+
+    // Display performance
+    println!(
+        "Parsing   : {:.1} microseconds (average) {}",
+        average_time_ms,
+        if cfg!(debug_assertions) {
+            " [WARNING: debug mode heavily impacts performances]"
+        } else {
+            ""
+        }
+    );
 
     // Display the result
     let result = eval_expr(&success.matched);

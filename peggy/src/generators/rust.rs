@@ -71,7 +71,7 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
             };
 
             Some(quote! {
-                #[derive(Debug, Clone)]
+                #[derive(Debug, Clone, PartialEq, Eq)]
                 pub struct #ident #lifetime_req {
                     pub matched: #rule_type,
                     pub at: usize
@@ -107,7 +107,7 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
         .map(|(string, typename)| {
             quote! {
                 #[doc = #string]
-                #[derive(Debug, Clone)]
+                #[derive(Debug, Clone, PartialEq, Eq)]
                 // Original string: #string
                 pub struct #typename;
             }
@@ -130,7 +130,7 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
         .map(|name| {
             let ident = format_ident!("{}", name);
             quote! {
-                #[derive(Debug, Clone)]
+                #[derive(Debug, Clone, PartialEq, Eq)]
                 pub struct #ident {
                     pub matched: char,
                     pub at: usize
@@ -153,7 +153,7 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
         let ident = format_ident!("Sw{}", i);
 
         quote! {
-            #[derive(Debug, Clone)]
+            #[derive(Debug, Clone, PartialEq, Eq)]
             pub enum #ident<#(#variants),*> {
                 #(#variants (#variants),)*
             }
@@ -238,7 +238,7 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
 
         #no_linting
         pub mod matched {
-            #[derive(Debug, Clone)]
+            #[derive(Debug, Clone, PartialEq, Eq)]
             pub enum MatchedRule #global_lifetime_req {
                 #(#rule_types_enum_variants),*
             }

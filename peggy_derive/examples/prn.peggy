@@ -1,4 +1,4 @@
-S = °B_WHITESPACE                          # Whitespace
+S = °B_WHITESPACE                           # Whitespace
 DEC_SEP = °("." | ",")                      # Decimal separator
 
 int = @(B_ASCII_DIGIT+)                     # Integer

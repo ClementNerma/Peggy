@@ -18,10 +18,10 @@ You can find several examples in the source directories for [`peggy`](peggy/exam
 A Reverse Polish Notation (RPN) grammar may look like this:
 
 ```
-S = _:B_WHITESPACE                          # Whitespace
-DEC_SEP = _:("." | ",")                     # Decimal separator
+S = °B_WHITESPACE                           # Whitespace
+DEC_SEP = °("." | ",")                      # Decimal separator
 
-int = B_ASCII_DIGIT+                        # Integer
+int = @(B_ASCII_DIGIT+)                     # Integer
 float = int DEC_SEP int                     # Floating-point number
 number = int | float                        # Number
 
@@ -29,7 +29,7 @@ operator = "+" | "-" | "*" | "/"            # Operator
 operand = number | paren_expr               # Operand
 operation = operand S+ operand S* operator  # Complete operation
 
-paren_expr = _:"(" S* expr S* _:")"         # Expression wrapped between parenthesis
+paren_expr = °"(" S* expr S* °")"           # Expression wrapped between parenthesis
 expr = number | operation | paren_expr      # Complete expression
 
 main = expr                                 # Grammar's entrypoint
@@ -70,7 +70,7 @@ On my computer (Intel Core i7-9700F), in release mode the grammar is parsed in 1
 
 As you can guess, these increases linearly with the size of the inputs, which can lead to a time of multiple seconds if you parse tens of thousands of kilobytes.
 
-With the parser generator, we go down from 128 microseconds to only 15 (so 0.015 milliseconds), which is great!
+With the parser generator, we go down from 128 microseconds to only 6.5 (so 0.065 milliseconds).
 
 ## Elegant error reporting
 
