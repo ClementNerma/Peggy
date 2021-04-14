@@ -23,7 +23,7 @@ pub fn gen_pattern_type<'a>(
     }
 
     let pattern_type = if pattern.is_atomic() {
-        quote! { String }
+        quote! { &'a str }
     } else {
         gen_pattern_value_type(state, visiting, pattern.value())?
     };
@@ -61,10 +61,18 @@ pub fn gen_pattern_value_type<'a>(
                 Some(quote! { super::matched::#ident })
             } else if let Some(PatternMode::Silent) = state.non_capturing_rules.get(name) {
                 None
-            } else if state.recursive_paths[visiting].contains(name) {
-                Some(quote! { std::rc::Rc<super::matched::#ident> })
             } else {
-                Some(quote! { super::matched::#ident })
+                let lifetime_req = if state.rules_with_lifetime.contains(name) {
+                    quote! { <'a> }
+                } else {
+                    quote! {}
+                };
+
+                if state.recursive_paths[visiting].contains(name) {
+                    Some(quote! { std::rc::Rc<super::matched::#ident #lifetime_req> })
+                } else {
+                    Some(quote! { super::matched::#ident #lifetime_req })
+                }
             }
         }
         RulePatternValue::Group(inner) => gen_pattern_type(state, visiting, inner.as_ref()),

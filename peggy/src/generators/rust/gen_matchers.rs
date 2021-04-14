@@ -21,6 +21,8 @@ pub fn gen_rule_matcher<'a>(
 
     let ret_type = if let Some(PatternMode::Silent) = state.non_capturing_rules.get(name) {
         quote! { () }
+    } else if state.rules_with_lifetime.contains(name) {
+        quote! { super::matched::#ident<'a> }
     } else {
         quote! { super::matched::#ident }
     };
@@ -72,7 +74,7 @@ pub fn gen_pattern_matcher<'a>(
                 }
             }},
             Some(PatternMode::Atomic) => quote! { #matcher.map(|(_, consumed, end_err)| {
-                (base_input_for_str[(offset - base_offset_for_str)..(offset - base_offset_for_str + consumed)].to_string(), consumed, end_err)
+                (&base_input_for_str[(offset - base_offset_for_str)..(offset - base_offset_for_str + consumed)], consumed, end_err)
             }) },
             None => quote! { #matcher }
     };

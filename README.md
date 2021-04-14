@@ -132,7 +132,7 @@ Patterns can also be set a _mode_ by prefixing them with a character (no space a
 * `!`: negative pattern - will match only if the inner pattern doesn't ; does not capture or consume anything
 * `@`: atomic patterns - will be returned as a single string if matching
 
-Please note that, unlike any other feature, atomic patterns will require the generated program to allocate the matched string. This shouldn't be a problem as atomics are designed to handle very small strings, but keep that in mind.
+Please note that, unlike any other feature, atomic patterns will add a lifetime to the success type to be able to store the input slice. This avoids any form of heap allocation, but will make a lifetime appear in all parent patterns (and so, forcibly in the global success type) if you suddenly introduce an atomic pattern. This shouldn't be a problem in most cases, but keep that in mind.
 
 ## Builtin rules
 

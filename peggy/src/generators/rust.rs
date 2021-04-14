@@ -2,6 +2,7 @@ mod gen_matchers;
 mod gen_types;
 mod non_capturing;
 mod recursive_rules;
+mod rules_lifetime;
 
 use crate::compiler::*;
 use quote::__private::{Ident, TokenStream};
@@ -23,6 +24,7 @@ pub struct InternalState<'a> {
     used_builtin_rules: HashSet<&'a str>,
     rule_types: HashMap<&'a str, Option<TokenStream>>,
     non_capturing_rules: HashMap<&'a str, PatternMode>,
+    rules_with_lifetime: HashSet<&'a str>,
     highest_union_used: usize,
     debugger: Option<Ident>,
 }
@@ -39,6 +41,7 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
         used_builtin_rules: HashSet::new(),
         rule_types: HashMap::new(),
         non_capturing_rules: non_capturing::list_rules(pst),
+        rules_with_lifetime: rules_lifetime::build_lifetime_reqs(pst),
         highest_union_used: 0,
         debugger: debugger.map(|mod_name| format_ident!("{}", mod_name)),
     };
@@ -61,9 +64,15 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
 
             let rule_type = rule_type?;
 
+            let lifetime_req = if state.rules_with_lifetime.contains(name) {
+                quote! { <'a> }
+            } else {
+                quote! {}
+            };
+
             Some(quote! {
                 #[derive(Debug, Clone)]
-                pub struct #ident {
+                pub struct #ident #lifetime_req {
                     pub matched: #rule_type,
                     pub at: usize
                 }
@@ -79,7 +88,14 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
         .filter(|(name, _)| state.non_capturing_rules.get(*name) != Some(&PatternMode::Silent))
         .map(|(name, _)| {
             let variant = make_safe_ident(name);
-            quote! { #variant(super::matched::#variant) }
+
+            let lifetime_req = if state.rules_with_lifetime.contains(name) {
+                quote! { <'a> }
+            } else {
+                quote! {}
+            };
+
+            quote! { #variant(super::matched::#variant #lifetime_req) }
         })
         .collect();
 
@@ -168,8 +184,14 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
 
     let err_formatter_impl_ts = err_formatter_impl();
 
+    let (global_lifetime_req, global_lifetime_name) = if state.rules_with_lifetime.is_empty() {
+        (quote! {}, quote! {})
+    } else {
+        (quote! { <'a> }, quote! { 'a })
+    };
+
     quote! {
-        pub fn exec(input: &str) -> Result<SuccessData, PegError> {
+        pub fn exec #global_lifetime_req (input: & #global_lifetime_name str) -> Result<SuccessData #global_lifetime_req, PegError> {
             rules::#main_rule(input, input, 0)
                 .and_then(|(typed_matched, consumed, end_err)| {
                     if input.len() > consumed {
@@ -180,7 +202,7 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
                 })
         }
 
-        pub type SuccessData = matched::#main_rule;
+        pub type SuccessData #global_lifetime_req = matched::#main_rule #global_lifetime_req;
 
         #[derive(Debug, Clone)]
         pub struct PegError<'a> {
@@ -217,7 +239,7 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
         #no_linting
         pub mod matched {
             #[derive(Debug, Clone)]
-            pub enum MatchedRule {
+            pub enum MatchedRule #global_lifetime_req {
                 #(#rule_types_enum_variants),*
             }
 

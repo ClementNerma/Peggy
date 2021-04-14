@@ -2,6 +2,10 @@
 
 ## Pre-1.0 versions
 
+### Version 0.7.x (April 13th, 2021)
+
+* **BREAKING:** Introduce "on-requirement" lifetimes for generated parsers' success values (avoids heap allocation)
+
 ### Version 0.6.x (April 13th, 2021)
 
 * **MAJOR:** Introduce negative (`!`) patterns
