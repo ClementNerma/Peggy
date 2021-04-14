@@ -282,7 +282,7 @@ fn err_formatter_impl() -> TokenStream {
                     .source
                     .lines()
                     .take(line_index)
-                    .fold(0, |acc, value| acc + value.len());
+                    .fold(0, |acc, value| acc + value.len() + 1 /* TODO: Proper line jump counting */);
 
                 let line = if line_index < self.source.lines().count() {
                     self.source.lines().nth(line_index).unwrap()
