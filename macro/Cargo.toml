@@ -1,6 +1,6 @@
 [package]
-name = "peggy_derive"
-version = "0.6.0"
+name = "peggy_macro"
+version = "0.7.0"
 authors = ["Clément Nerma <clement.nerma@gmail.com>"]
 edition = "2018"
 
@@ -9,7 +9,7 @@ proc-macro = true
 
 [dependencies]
 lazy_static = "1.4.0"
-peggy = { path = "../peggy" }
+peggy = { path = "../peggy", features = ["rustgen"] }
 quote = "1.0.9"
 regex = "1.4.5"
 syn = { version = "1.0.69", features = ["full"] }

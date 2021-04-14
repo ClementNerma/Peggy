@@ -4,5 +4,11 @@ version = "0.7.0"
 edition = "2018"
 authors = ["Clément Nerma <clement.nerma@gmail.com>"]
 
+[features]
+default = []
+runtime = []
+peggygen = []
+rustgen = ["quote"]
+
 [dependencies]
-quote = "1.0.9"
+quote = { version = "1.0.9", optional = true }

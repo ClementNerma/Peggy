@@ -1,7 +1,6 @@
-#[macro_use]
-extern crate peggy_derive;
+use peggy_macro::peggy_gen;
 
-#[peggy_grammar(filename = "../examples/rpn.peggy")]
+#[peggy_gen(filename = "../examples/rpn.peggy")]
 pub mod rpn_grammar {}
 
 use rpn_grammar::matched;

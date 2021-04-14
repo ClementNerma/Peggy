@@ -1,5 +1,5 @@
-use crate::compiler::data::*;
-use crate::compiler::utils::*;
+use crate::grammar::data::*;
+use crate::grammar::utils::*;
 use std::collections::{HashMap, HashSet};
 
 pub fn find<'a>(pst: &'a PegSyntaxTree) -> HashMap<&'a str, HashSet<&'a str>> {

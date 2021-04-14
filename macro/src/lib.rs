@@ -2,8 +2,8 @@
 #![forbid(unused_must_use)]
 
 use lazy_static::lazy_static;
-use peggy::compiler::{parse_peg, pretty_format_parser_err};
-use peggy::generators::rust::gen_rust_token_stream;
+use peggy::grammar::{parse_peg, pretty_format_parser_err};
+use peggy::rustgen::gen_rust_token_stream;
 use proc_macro::TokenStream;
 use quote::quote;
 use regex::Regex;
@@ -28,7 +28,7 @@ struct Options {
 }
 
 #[proc_macro_attribute]
-pub fn peggy_grammar(attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn peggy_gen(attr: TokenStream, item: TokenStream) -> TokenStream {
     let (mod_ident, mod_vis) = parse_input_mod(item);
 
     let options = parse_options_attr(attr);

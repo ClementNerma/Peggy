@@ -1,6 +1,6 @@
-use peggy_derive::peggy_grammar;
+use peggy_macro::peggy_gen;
 
-#[peggy_grammar(filename = "../examples/float.peggy")]
+#[peggy_gen(filename = "../examples/float.peggy")]
 mod float_grammar {}
 
 static TEST_INPUT: &str = "12345.6789";

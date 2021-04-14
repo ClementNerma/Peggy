@@ -1,6 +1,6 @@
 //! This file demonstrates how to make a simple Reverse Polish Notation (RPN) parser and evaluator using Peggy
 
-use peggy::compiler::{parse_peg, pretty_format_parser_err};
+use peggy::grammar::{parse_peg, pretty_format_parser_err};
 use peggy::runtime::{execute, MatchedData, MatchedRule, RuntimeContext, RuntimeOptions};
 use std::time::Instant;
 

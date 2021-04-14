@@ -1,4 +1,4 @@
-use crate::compiler::{Pattern, PegSyntaxTree, RulePatternValue};
+use crate::grammar::{Pattern, PegSyntaxTree, RulePatternValue};
 
 /// Generate a Peggy grammar from its syntax tree
 ///

@@ -4,7 +4,7 @@ mod non_capturing;
 mod recursive_rules;
 mod rules_lifetime;
 
-use crate::compiler::*;
+use crate::grammar::*;
 use quote::__private::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use std::collections::{HashMap, HashSet};

@@ -50,6 +50,13 @@
 #![forbid(unsafe_code)]
 #![forbid(unused_must_use)]
 
-pub mod compiler;
-pub mod generators;
+pub mod grammar;
+
+#[cfg(feature = "rustgen")]
+pub mod rustgen;
+
+#[cfg(feature = "peggygen")]
+pub mod peggygen;
+
+#[cfg(feature = "runtime")]
 pub mod runtime;

@@ -1,5 +1,5 @@
-use peggy::compiler::{parse_peg, pretty_format_parser_err};
-use peggy::generators::rust::gen_rust_str;
+use peggy::grammar::{parse_peg, pretty_format_parser_err};
+use peggy::rustgen::gen_rust_str;
 
 static PRN_GRAMMAR: &str = r#"
 

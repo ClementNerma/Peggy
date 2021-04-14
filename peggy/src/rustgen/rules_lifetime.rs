@@ -1,5 +1,5 @@
-use crate::compiler::data::*;
-use crate::compiler::utils::is_builtin_rule_name;
+use crate::grammar::data::*;
+use crate::grammar::utils::is_builtin_rule_name;
 use std::collections::{HashMap, HashSet};
 
 pub fn build_lifetime_reqs<'a>(pst: &'a PegSyntaxTree) -> HashSet<&'a str> {

@@ -1,8 +1,8 @@
 use quote::{quote, format_ident};
 use quote::__private::TokenStream;
 use super::{InternalState, make_safe_ident, get_enum_variant};
-use crate::compiler::data::*;
-use crate::compiler::utils::*;
+use crate::grammar::data::*;
+use crate::grammar::utils::*;
 
 pub fn gen_rule_matcher<'a>(
     state: &mut InternalState<'a>,

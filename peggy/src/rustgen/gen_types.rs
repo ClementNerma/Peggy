@@ -1,6 +1,6 @@
 use super::{make_safe_ident, InternalState};
-use crate::compiler::data::*;
-use crate::compiler::utils::*;
+use crate::grammar::data::*;
+use crate::grammar::utils::*;
 use quote::__private::TokenStream;
 use quote::{format_ident, quote};
 use std::collections::HashMap;

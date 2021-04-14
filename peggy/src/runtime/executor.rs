@@ -1,8 +1,8 @@
 use super::builtin;
 use super::data::{MatchedData, MatchedRule};
 use super::errors::{RuntimeError, RuntimeErrorContent, RuntimeTreeItem};
-use crate::compiler::utils::{is_builtin_rule_name, is_external_rule_name};
-use crate::compiler::{Pattern, PatternRepetition, PegSyntaxTree, RulePatternValue};
+use crate::grammar::utils::{is_builtin_rule_name, is_external_rule_name};
+use crate::grammar::{Pattern, PatternRepetition, PegSyntaxTree, RulePatternValue};
 use std::rc::Rc;
 
 /// Match a subject string against a [parsed grammar](crate::compiler::parse_peg).

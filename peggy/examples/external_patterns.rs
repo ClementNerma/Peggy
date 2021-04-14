@@ -1,4 +1,4 @@
-use peggy::compiler::parse_peg;
+use peggy::grammar::parse_peg;
 use peggy::runtime::{execute, RuntimeContext, RuntimeOptions};
 
 static GRAMMAR: &str = r#"main = "["+ E_LETTER_A* "]"+"#;

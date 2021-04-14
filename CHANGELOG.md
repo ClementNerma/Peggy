@@ -2,11 +2,11 @@
 
 ## Pre-1.0 versions
 
-### Version 0.7.x (April 13th, 2021)
+### Version 0.7.0 (April 13th, 2021)
 
-* **BREAKING:** Introduce "on-requirement" lifetimes for generated parsers' success values (avoids heap allocation)
+* **BREAKING:** Rename crates and add features gate for main crate
 
-### Version 0.6.x (April 13th, 2021)
+### Version 0.6.0 (April 13th, 2021)
 
 * **MAJOR:** Introduce negative (`!`) patterns
 * **MAJOR:** Introduce peek (`~`) patterns
@@ -14,6 +14,7 @@
 * **BREAKING:** Change silent patterns syntax from `_:` to just `°`
 * **BREAKING:** Change atomic patterns syntax from `@:` to just `@`
 * **BREAKING:** Reordered the parser's type into a new `compiler::data` module
+* **BREAKING:** Introduce "on-requirement" lifetimes for generated parsers' success values (avoids heap allocation)
 
 * **Minor:** Return correct error from repeated pattern at end of input
 * **Minor:** Return matched content when matching inside a negative pattern
@@ -30,7 +31,7 @@
 * **Fix:** Incorrect string slicing in generated parsers
 * **Fix:** Infinite loop while checking some recursive patterns
 
-### Version 0.5.x (April 13th, 2021)
+### Version 0.5.0 (April 13th, 2021)
 
 * **MAJOR:** Introduce atomic patterns
 
@@ -49,7 +50,7 @@
 * **Fix:** Various bug fixes
 * **Fix:** Stack overflow when validating recursive patterns
 
-### Version 0.4.x (April 13th, 2021)
+### Version 0.4.0 (April 13th, 2021)
 
 * **BREAKING:** Rename:
   * `Patterns` to `Rules`
@@ -64,9 +65,9 @@
 
 ### Version 0.3.0 (April 12th, 2021)
 
-* **MAJOR:** Introduce the [parser generator](peggy_derive/)
+* **MAJOR:** Introduce the [parser generator](macro/)
 
-### Version 0.2.x (April 12th, 2021)
+### Version 0.2.0 (April 12th, 2021)
 
 * **MAJOR:** Introduce silent patterns
 

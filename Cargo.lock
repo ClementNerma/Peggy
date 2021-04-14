@@ -29,8 +29,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "peggy_derive"
-version = "0.6.0"
+name = "peggy_macro"
+version = "0.7.0"
 dependencies = [
  "lazy_static",
  "peggy",

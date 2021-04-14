@@ -4,14 +4,14 @@
 
 It can parse nested grammars and supports repetition operators. Error reporting is tailored to be as intuitive and readable as possible.
 
-There are two crates: [`peggy`](peggy/), which contains the library's base code as well as the grammar parser and the runtime engine, and [`peggy_derive/`](peggy_derive/) which is the parser generator.
+There are two crates: [`peggy`](peggy/), which contains all the library's code, and [`peggy_macro`](macro/) which allows to generate a Rust module from a grammar to make a native parser.
 
 ## Examples
 
-You can find several examples in the source directories for [`peggy`](peggy/examples) and [`peggy_derive`](peggy_derive/examples), notably:
+You can find several examples in the source directories for [`peggy`](peggy/examples) and [`peggy_macro`](macro/examples), notably:
 
-* [`peggy/prn`](peggy/examples/prn.rs) - A Reverse Polish Notation (RPN) evaluator, using the runtime engine
-* [`peggy_derive/prn`](peggy_derive/examples/prn.rs) - The same RPN evaluator but using a parser generator
+* [`peggy/rpn`](peggy/examples/rpn.rs) - A Reverse Polish Notation (RPN) evaluator, using the runtime engine
+* [`macro/rpn`](macro/examples/rpn.rs) - The same RPN evaluator but using a parser generator
 
 ## RPN example
 
@@ -42,15 +42,14 @@ This will be able to match complex operations like `(3 (9.3 3 /) +) (5 (2 3 /) /
 Here is an example usage of the parser generator:
 
 ```rust
-#[macro_use]
-extern crate peggy_derive;
+use peggy_macro::peggy_gen;
 
-#[peggy_grammar(filename = "prn.peggy")]
-pub mod prn_grammar {}
+#[peggy_gen(filename = "rpn.peggy")]
+pub mod rpn_grammar {}
 
 fn main() {
     // Evaluate the expression
-    let success = prn_grammar::exec("(3 (9.3 3 /) +) (5 (2 3 /) /) /").unwrap();
+    let success = rpn_grammar::exec("(3 (9.3 3 /) +) (5 (2 3 /) /) /").unwrap();
 
     // Do your stuff
 }

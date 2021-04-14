@@ -1,9 +1,7 @@
+use peggy_macro::peggy_gen;
 use std::time::Instant;
 
-#[macro_use]
-extern crate peggy_derive;
-
-#[peggy_grammar(filename = "../examples/debugger.peggy", debugger = "debugger")]
+#[peggy_gen(filename = "../examples/debugger.peggy", debugger = "debugger")]
 pub mod debugger_grammar {}
 
 pub mod debugger {
