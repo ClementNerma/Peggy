@@ -4,7 +4,7 @@ use peggy::compiler::{parse_peg, pretty_format_parser_err};
 use peggy::runtime::{execute, MatchedData, MatchedRule, RuntimeContext, RuntimeOptions};
 use std::time::Instant;
 
-static PRN_GRAMMAR: &str = r#"
+static RPN_GRAMMAR: &str = r#"
 
 S = °B_WHITESPACE                           # Whitespace
 DEC_SEP = °("." | ",")                      # Decimal separator
@@ -31,9 +31,9 @@ fn main() {
     let now = Instant::now();
 
     // Parse the grammar
-    let pst = parse_peg(PRN_GRAMMAR).unwrap_or_else(|err| {
-        eprintln!("{}", pretty_format_parser_err(PRN_GRAMMAR, err));
-        panic!("Failed to parse PRN grammar");
+    let pst = parse_peg(RPN_GRAMMAR).unwrap_or_else(|err| {
+        eprintln!("{}", pretty_format_parser_err(RPN_GRAMMAR, err));
+        panic!("Failed to parse RPN grammar");
     });
 
     // Get elapsed time
@@ -63,7 +63,7 @@ fn main() {
     })
     .unwrap_or_else(|err| {
         eprintln!("{}", err);
-        panic!("Failed to match PRN grammar against a PRN expression");
+        panic!("Failed to match RPN grammar against a RPN expression");
     });
 
     // Get elapsed time

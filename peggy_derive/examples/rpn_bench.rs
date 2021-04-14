@@ -3,12 +3,12 @@ use std::time::Instant;
 #[macro_use]
 extern crate peggy_derive;
 
-#[peggy_grammar(filename = "../examples/prn.peggy")]
-pub mod prn_grammar {}
+#[peggy_grammar(filename = "../examples/rpn.peggy")]
+pub mod rpn_grammar {}
 
-use prn_grammar::matched;
-use prn_grammar::strings;
-use prn_grammar::unions::*;
+use rpn_grammar::matched;
+use rpn_grammar::strings;
+use rpn_grammar::unions::*;
 
 static TEST_INPUT: &str = "(3 (9.3 3 /) +) (5 (2 3 /) /) /";
 static ITERATIONS: usize = 100_000;
@@ -25,11 +25,8 @@ fn main() {
     let success = loop {
         iteration += 1;
 
-        let result = prn_grammar::exec(TEST_INPUT).unwrap_or_else(|err| {
-            panic!(
-                "Failed to match PRN grammar against a PRN expression:\n{}",
-                err
-            );
+        let result = rpn_grammar::exec(TEST_INPUT).unwrap_or_else(|err| {
+            panic!("Failed to match input against RPN grammar:\n{}", err);
         });
 
         if iteration == ITERATIONS {
