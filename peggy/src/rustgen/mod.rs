@@ -1,8 +1,8 @@
-mod gen_matchers;
-mod gen_types;
-mod non_capturing;
+mod matchers;
+mod non_capturing_pat;
 mod recursive_rules;
-mod rules_lifetime;
+mod rules_lifetime_reqs;
+mod types;
 
 use crate::grammar::*;
 use quote::__private::{Ident, TokenStream};
@@ -40,8 +40,8 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
         cst_string_counters: HashMap::new(),
         used_builtin_rules: HashSet::new(),
         rule_types: HashMap::new(),
-        non_capturing_rules: non_capturing::list_rules(pst),
-        rules_with_lifetime: rules_lifetime::build_lifetime_reqs(pst),
+        non_capturing_rules: non_capturing_pat::list_rules(pst),
+        rules_with_lifetime: rules_lifetime_reqs::build_lifetime_reqs(pst),
         highest_union_used: 0,
         debugger: debugger.map(|mod_name| format_ident!("{}", mod_name)),
     };
@@ -58,7 +58,7 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
         .filter_map(|(name, content)| {
             let ident = make_safe_ident(name);
 
-            let rule_type = gen_types::gen_rule_type(&mut state, name, content);
+            let rule_type = types::gen_rule_type(&mut state, name, content);
 
             state.rule_types.insert(*name, rule_type.clone());
 
@@ -119,7 +119,7 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
     let mut rules: Vec<_> = pst
         .rules()
         .iter()
-        .map(|(name, content)| gen_matchers::gen_rule_matcher(&mut state, name, content))
+        .map(|(name, content)| matchers::gen_rule_matcher(&mut state, name, content))
         .collect();
 
     rules.sort_by_key(|t| t.to_string());
