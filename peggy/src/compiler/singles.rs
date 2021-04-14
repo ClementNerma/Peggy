@@ -75,7 +75,7 @@ pub fn rule_name(input: &str, base_loc: ParserLoc) -> Result<Option<(&str, usize
         name_len += c.len_utf8();
     }
 
-    Ok(Some((&input[0..=name_len - 1], name_len)))
+    Ok(Some((&input[..=name_len - 1], name_len)))
 }
 
 /// Try to match a group

@@ -150,39 +150,53 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
 
     let main_rule = format_ident!("{}", GRAMMAR_ENTRYPOINT_RULE);
 
+    let err_formatter_impl_ts = err_formatter_impl();
+
     quote! {
         pub fn exec(input: &str) -> Result<SuccessData, PegError> {
-            rules::#main_rule(input, 0).and_then(|(typed_matched, consumed, end_err)| {
-                if input.len() > consumed {
-                    Err(end_err.unwrap_or_else(|| PegErrorContent::ExpectedEndOfInput.at(consumed)))
-                } else {
-                    Ok(typed_matched)
-                }
-            })
+            rules::#main_rule(input, input, 0)
+                .and_then(|(typed_matched, consumed, end_err)| {
+                    if input.len() > consumed {
+                        Err(end_err.unwrap_or_else(|| PegErrorContent::ExpectedEndOfInput.at(input, consumed, #GRAMMAR_ENTRYPOINT_RULE)))
+                    } else {
+                        Ok(typed_matched)
+                    }
+                })
         }
 
         pub type SuccessData = matched::#main_rule;
 
         #[derive(Debug, Clone)]
         pub struct PegError<'a> {
+            pub source: &'a str,
             pub offset: usize,
-            pub content: PegErrorContent<'a>
+            pub content: PegErrorContent<'a>,
+            pub rule: &'static str,
+        }
+
+        impl<'a> PegError<'a> {
+            fn in_rule(mut self, rule: &'static str) -> Self {
+                self.rule = rule;
+                self
+            }
         }
 
         #[derive(Debug, Clone)]
         pub enum PegErrorContent<'a> {
             ExpectedCstString(&'a str),
-            FailedToMatchBuiltinRule(&'static str),
+            FailedToMatchBuiltinRule(&'static str, Option<char>),
             NoMatchInUnion(Vec<std::rc::Rc<PegError<'a>>>),
             MatchedInNegativePattern(&'a str),
             ExpectedEndOfInput
         }
 
         impl<'a> PegErrorContent<'a> {
-            fn at(self, offset: usize) -> PegError<'a> {
-                PegError { offset, content: self }
+            fn at(self, source: &'a str, offset: usize, rule: &'static str) -> PegError<'a> {
+                PegError { source, offset, rule, content: self }
             }
         }
+
+        #err_formatter_impl_ts
 
         #no_linting
         pub mod matched {
@@ -207,6 +221,109 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
 
         pub mod unions {
             #(#unions)*
+        }
+    }
+}
+
+fn err_formatter_impl() -> TokenStream {
+    quote! {
+        impl<'a> std::fmt::Display for PegError<'a> {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                // Get all lines above the one the error is located on
+                let head_lines_count = self.source[..self.offset].lines().count();
+
+                // Deduce from it from the error line's number
+                let line_index = if head_lines_count > 0 {
+                    head_lines_count - 1
+                } else {
+                    0
+                };
+
+                // Get the length of the lines above the one the error is located on
+                let head_lines_len = self
+                    .source
+                    .lines()
+                    .take(line_index)
+                    .fold(0, |acc, value| acc + value.len());
+
+                let line = if line_index < self.source.lines().count() {
+                    self.source.lines().nth(line_index).unwrap()
+                } else {
+                    ""
+                };
+
+                // Deduce from it the column of the error
+                let column = self.offset - head_lines_len;
+
+                // Produce a padding
+                let padding =
+                    " ".repeat(line[..column].chars().count() + (line_index + 1).to_string().len() + 3);
+
+                // Do the formatting
+                write!(
+                    f,
+                    "ERROR: While matching rule [{}] at line {}, column {}: \n\n{} | {}\n{}^{}",
+                    self.rule,
+                    line_index + 1,
+                    column + 1,
+                    line_index + 1,
+                    self.source.lines().nth(line_index).unwrap(),
+                    padding,
+                    format!("{}", self.content)
+                        .lines()
+                        .map(|l| format!("\n{}{}", padding, l))
+                        .collect::<String>()
+                )
+            }
+        }
+
+        impl<'a> std::fmt::Display for PegErrorContent<'a> {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                match &self {
+                    PegErrorContent::ExpectedCstString(string) => {
+                        write!(f, "Expected constant string: {}", string)
+                    }
+                    PegErrorContent::FailedToMatchBuiltinRule(rule, Some(c)) => {
+                        write!(f, "Failed to match builtin rule [{}]: found character [{}]", rule, c)
+                    }
+                    PegErrorContent::FailedToMatchBuiltinRule(rule, None) => {
+                        write!(f, "Failed to match biultin rule [{}]: reached end of input", rule)
+                    }
+                    PegErrorContent::NoMatchInUnion(matches) => write!(
+                        f,
+                        "Failed to match in union: {}",
+                        matches
+                            .iter()
+                            .enumerate()
+                            .map(|(i, err)| {
+                                let prefix = format!("  Variant {}: ", i + 1);
+                                let padding = " ".repeat(prefix.len());
+                                format!(
+                                    "\n\n{}{}",
+                                    prefix,
+                                    format!("{}", err)
+                                        .lines()
+                                        .enumerate()
+                                        .map(|(i, l)| {
+                                            if i == 0 {
+                                                l.to_string()
+                                            } else {
+                                                format!("\n{}{}", padding, l)
+                                            }
+                                        })
+                                        .collect::<String>()
+                                )
+                            })
+                            .collect::<String>()
+                    ),
+                    PegErrorContent::MatchedInNegativePattern(neg) => write!(
+                        f,
+                        "Matched content in negative pattern: {}",
+                        neg.lines().next().unwrap_or("")
+                    ),
+                    PegErrorContent::ExpectedEndOfInput => write!(f, "Expected end of input"),
+                }
+            }
         }
     }
 }

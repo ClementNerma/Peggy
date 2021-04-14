@@ -21,7 +21,7 @@ fn main() {
     // Evaluate the expression
     let success = prn_grammar::exec(TEST_INPUT).unwrap_or_else(|err| {
         panic!(
-            "Failed to match PRN grammar against a PRN expression: {:#?}",
+            "Failed to match PRN grammar against a PRN expression:\n{}",
             err
         );
     });

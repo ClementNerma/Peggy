@@ -13,10 +13,17 @@
 
 * **Minor:** Return correct error from repeated pattern at end of input
 * **Minor:** Return matched content when matching inside a negative pattern
+* **Minor:** Add the rule's name inside generated parsers' error values
+* **Minor:** Make the generated parsers' error values displayable
+* **Minor:** Attached invalid character (if any) when failing to match against a builtin rule
+
+* **QoF:** Speed up checking of recursive patterns when generating a parser
 
 * **Fix:** Character comparisons in generated builtin patterns
 * **Fix:** Some unused rules weren't reported as unused
 * **Fix:** Correctly handle all Unicode characters
+* **Fix:** Incorrect string slicing in generated parsers
+* **Fix:** Infinite loop while checking some recursive patterns
 
 ### Version 0.5.x (April 13th, 2021)
 

@@ -78,7 +78,7 @@ impl<'a> RuntimeError<'a> {
         };
 
         // Get all lines above the one the error is located on
-        let head_lines_count = self.subject[0..offset].lines().count();
+        let head_lines_count = self.subject[..offset].lines().count();
 
         // Deduce from it from the error line's number
         let line_index = if head_lines_count > 0 {

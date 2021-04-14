@@ -31,6 +31,7 @@ pub fn gen_rule_matcher<'a>(
 
             let base_input_for_str = input;
             let base_offset_for_str = offset;
+            let rule_name = #name;
             let result = #body;
 
             super::super::#mod_name::leaving_rule(#name, input, offset, result.clone().err());
@@ -41,12 +42,13 @@ pub fn gen_rule_matcher<'a>(
         quote! {
             let base_input_for_str = input;
             let base_offset_for_str = offset;
+            let rule_name = #name;
             #body
         }
     };
 
     quote! {
-        pub fn #ident (input: &str, offset: usize) -> Result<(#ret_type, usize, Option<super::PegError>), super::PegError> {
+        pub fn #ident <'a> (source: &'a str, input: &'a str, offset: usize) -> Result<(#ret_type, usize, Option<super::PegError<'a>>), super::PegError<'a>> {
             #body_with_eventual_debugger
         }
     }
@@ -65,7 +67,7 @@ pub fn gen_pattern_matcher<'a>(
             Some(PatternMode::Negative) => quote! {{
                 let result = #matcher;
                 match result {
-                    Ok((_, consumed, _)) => Err(super::PegErrorContent::MatchedInNegativePattern(&base_input_for_str[(offset - base_offset_for_str)..(offset - base_offset_for_str + consumed)]).at(offset)),
+                    Ok((_, consumed, _)) => Err(super::PegErrorContent::MatchedInNegativePattern(&base_input_for_str[(offset - base_offset_for_str)..(offset - base_offset_for_str + consumed)]).at(source, offset, rule_name)),
                     Err(_) => Ok(((), 0, Option::<super::PegError>::None))
                 }
             }},
@@ -154,23 +156,34 @@ pub fn gen_pattern_value_matcher<'a>(
                 if input.starts_with(#string) {
                     Ok((#str_type, #str_len, Option::<super::PegError>::None))
                 } else {
-                    Err(super::PegErrorContent::ExpectedCstString(#string).at(offset))
+                    Err(super::PegErrorContent::ExpectedCstString(#string).at(source, offset, rule_name))
                 }
             }
         }
         RulePatternValue::Rule(name) => {
-            if is_builtin_rule_name(name) {
+            let matcher = if is_builtin_rule_name(name) {
                 state.used_builtin_rules.insert(name);
                 gen_builtin_matcher(name)
             } else {
                 let ident = make_safe_ident(name);
-                let ret_data = quote! { #ident (input, offset) };
+                let ret_data = quote! { #ident (source, input, offset) };
 
                 if state.recursive_paths[visiting].contains(name) {
                     quote! { #ret_data.map(|(data, consumed, end_err)| (std::rc::Rc::new(data), consumed, end_err)) }
                 } else {
                     ret_data
                 }
+            };
+
+            if state.non_capturing_rules.contains_key(name) {
+                quote! {
+                    {
+                        let non_capturing = #matcher;
+                        non_capturing.map_err(|err| err.in_rule(rule_name))
+                    }
+                }
+            } else {
+                matcher
             }
         }
         RulePatternValue::Group(pattern) => {
@@ -255,9 +268,9 @@ pub fn gen_pattern_value_matcher<'a>(
 
                     quote! {
                         {
-                            let result = #matcher;
+                            let union_result = #matcher;
                             
-                            match result {
+                            match union_result {
                                 Ok((data, consumed, end_err)) => match candidate {
                                     Some((_, candidate_consumed, _)) => if consumed > candidate_consumed {
                                         candidate = Some((super::unions::#union_ident::#union_variant(data), consumed, end_err));
@@ -283,7 +296,7 @@ pub fn gen_pattern_value_matcher<'a>(
                     #(#tries)*
 
                     match candidate {
-                        None => Err(super::PegErrorContent::NoMatchInUnion(errors).at(offset)),
+                        None => Err(super::PegErrorContent::NoMatchInUnion(errors).at(source, offset, rule_name)),
                         Some((data, consumed, end_err)) => Ok((data, consumed, end_err))
                     }
                 }
@@ -296,10 +309,10 @@ pub fn gen_builtin_matcher(name: &str) -> TokenStream {
     let cond = match name {
         "B_ANY" => quote! { true },
 
-        "B_NEWLINE_CR" => quote! { *nc == '\r' },
-        "B_NEWLINE_LF" => quote! { *nc == '\n' },
+        "B_NEWLINE_CR" => quote! { nc == '\r' },
+        "B_NEWLINE_LF" => quote! { nc == '\n' },
 
-        "B_DOUBLE_QUOTE" => quote! { *nc == '"' },
+        "B_DOUBLE_QUOTE" => quote! { nc == '"' },
 
         "B_ASCII" => quote! { nc.is_ascii() },
         "B_ASCII_ALPHABETIC" => quote! { nc.is_ascii_alphabetic() },
@@ -327,9 +340,13 @@ pub fn gen_builtin_matcher(name: &str) -> TokenStream {
     let name_ident = format_ident!("{}", name);
 
     quote! {
-        match input.chars().next().filter(|nc| #cond) {
-            None => Err(super::PegErrorContent::FailedToMatchBuiltinRule(#name).at(offset)),
-            Some(c) => Ok((super::matched::#name_ident { matched: c, at: offset }, 1, Option::<super::PegError>::None))
+        {
+            let nc = input.chars().next();
+
+            match nc.filter(|nc| #cond) {
+                Some(nc) => Ok((super::matched::#name_ident { matched: nc, at: offset }, 1, Option::<super::PegError>::None)),
+                None => Err(super::PegErrorContent::FailedToMatchBuiltinRule(#name, nc).at(source, offset, rule_name))
+            }
         }
     }
 }
