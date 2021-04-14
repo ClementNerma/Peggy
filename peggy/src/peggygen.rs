@@ -1,4 +1,4 @@
-use crate::grammar::{Pattern, PegSyntaxTree, RulePatternValue};
+use crate::grammar::{Pattern, PatternMode, PegSyntaxTree, RulePatternValue};
 
 /// Generate a Peggy grammar from its syntax tree
 ///
@@ -15,15 +15,15 @@ pub fn gen_peggy(pst: &PegSyntaxTree) -> String {
 
 /// Generate a Peggy code for a single [`RulePattern`]
 pub fn gen_peggy_pattern(pattern: &Pattern) -> String {
-    let mut pattern_value = if pattern.is_silent() {
-        "_:".to_string()
-    } else if pattern.is_atomic() {
-        "@:".to_string()
-    } else {
-        String::new()
+    let mode = match pattern.mode() {
+        Some(PatternMode::Silent) => "°",
+        Some(PatternMode::Peek) => "~",
+        Some(PatternMode::Negative) => "!",
+        Some(PatternMode::Atomic) => "@",
+        None => "",
     };
 
-    pattern_value.push_str(&gen_peggy_pattern_value(pattern.value()));
+    let mut pattern_value = format!("{}{}", mode, gen_peggy_pattern_value(pattern.value()));
 
     if let Some(rep) = pattern.repetition() {
         pattern_value.push(rep.symbol());
