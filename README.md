@@ -70,7 +70,7 @@ On my computer (Intel Core i7-9700F), in release mode the grammar is parsed in 1
 
 As you can guess, these increases linearly with the size of the inputs, which can lead to a time of multiple seconds if you parse tens of thousands of kilobytes.
 
-With the parser generator, we go down from 128 microseconds to only 10 (so 0.010 milliseconds), which is great!
+With the parser generator, we go down from 128 microseconds to only 15 (so 0.015 milliseconds), which is great!
 
 ## Elegant error reporting
 

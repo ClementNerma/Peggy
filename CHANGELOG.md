@@ -16,6 +16,7 @@
 * **Minor:** Add the rule's name inside generated parsers' error values
 * **Minor:** Make the generated parsers' error values displayable
 * **Minor:** Attached invalid character (if any) when failing to match against a builtin rule
+* **Minor:** Add methods to map generated unions' variants in generated parsers
 
 * **QoF:** Speed up checking of recursive patterns when generating a parser
 

@@ -126,18 +126,34 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
     builtin_rules.sort_by_key(|t| t.to_string());
 
     let unions = (2..=state.highest_union_used).map(|i| {
-        let generics: Vec<_> = (0..i)
-            .map(|i| format_ident!("{}", get_enum_variant(i)))
-            .collect();
         let variants: Vec<_> = (0..i)
             .map(|i| format_ident!("{}", get_enum_variant(i)))
             .collect();
+
+        let mappers: Vec<_> = (0..i)
+            .map(|i| format_ident!("mapper_{}", get_enum_variant(i)))
+            .collect();
+
         let ident = format_ident!("Sw{}", i);
 
         quote! {
             #[derive(Debug, Clone)]
-            pub enum #ident<#(#generics),*> {
-                #(#variants (#generics),)*
+            pub enum #ident<#(#variants),*> {
+                #(#variants (#variants),)*
+            }
+
+            impl<#(#variants,)*> #ident<#(#variants,)*> {
+                pub fn variants<Mapped>(self, #(#mappers: impl FnOnce(#variants) -> Mapped),*) -> Mapped {
+                    match self {
+                        #(Self::#variants(v) => #mappers(v)),*
+                    }
+                }
+
+                pub fn variants_ref<Mapped>(&self, #(#mappers: impl FnOnce(&#variants) -> Mapped),*) -> Mapped {
+                    match &self {
+                        #(Self::#variants(v) => #mappers(v)),*
+                    }
+                }
             }
         }
     });

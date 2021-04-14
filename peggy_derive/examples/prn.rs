@@ -50,18 +50,12 @@ fn main() {
 }
 
 fn eval_expr(expr: &matched::expr) -> f64 {
-    match &expr.matched {
-        Sw3::A(num) => eval_num(num),
-        Sw3::B(op) => eval_operation(op),
-        Sw3::C(paren_expr) => eval_paren_expr(paren_expr),
-    }
+    expr.matched
+        .variants_ref(eval_num, eval_operation, eval_paren_expr)
 }
 
 fn eval_num(num: &matched::number) -> f64 {
-    match &num.matched {
-        Sw2::A(int) => eval_int(int),
-        Sw2::B(float) => eval_float(float),
-    }
+    num.matched.variants_ref(eval_int, eval_float)
 }
 
 fn eval_int(int: &matched::int) -> f64 {
@@ -87,10 +81,7 @@ fn eval_operation(op: &matched::operation) -> f64 {
 }
 
 fn eval_operand(op: &matched::operand) -> f64 {
-    match &op.matched {
-        Sw2::A(num) => eval_num(num),
-        Sw2::B(paren_expr) => eval_paren_expr(paren_expr),
-    }
+    op.matched.variants_ref(eval_num, eval_paren_expr)
 }
 
 fn eval_paren_expr(paren_expr: &matched::paren_expr) -> f64 {
