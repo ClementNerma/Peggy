@@ -217,6 +217,29 @@ pub fn gen_rust_token_stream(pst: &PegSyntaxTree, debugger: Option<&str>) -> Tok
                 self.rule = rule;
                 self
             }
+
+            pub fn deepest(&self) -> &PegError<'a> {
+                match &self.content {
+                    PegErrorContent::ExpectedCstString(_)
+                        | PegErrorContent::FailedToMatchBuiltinRule(_, _)
+                        | PegErrorContent::MatchedInNegativePattern(_)
+                        | PegErrorContent::ExpectedEndOfInput => self,
+
+                    PegErrorContent::NoMatchInUnion(errors) => {
+                        let mut deepest = errors[0].deepest();
+
+                        for err in errors.iter().skip(1) {
+                            let err = err.deepest();
+
+                            if err.offset > deepest.offset {
+                                deepest = err;
+                            }
+                        }
+
+                        deepest
+                    }
+                }
+            }
         }
 
         #[derive(Debug, Clone)]
